@@ -7,16 +7,14 @@ import { PendingApproval } from '@/pages/PendingApproval';
 import { Dashboard } from '@/pages/Dashboard';
 import { SafetyCard } from '@/pages/SafetyCard';
 import { Manifest } from '@/pages/Manifest';
+import { PostTrip } from '@/pages/PostTrip';
+import { TripDetail } from '@/pages/TripDetail';
+import { Profile } from '@/pages/Profile';
+import { AdminPanel } from '@/pages/AdminPanel';
+import { TermsPage } from '@/pages/TermsPage';
+import { PrivacyPage } from '@/pages/PrivacyPage';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
-
-// Stubs — Antigravity will replace
-const PostTrip = () => <div className="p-4 text-muted-foreground">PostTrip — coming soon</div>;
-const TermsPage = () => <div className="p-4">Terms — coming soon</div>;
-const PrivacyPage = () => <div className="p-4">Privacy — coming soon</div>;
-const TripDetail = () => <div className="p-4 text-muted-foreground">TripDetail — coming soon</div>;
-const Profile = () => <div className="p-4 text-muted-foreground">Profile — coming soon</div>;
-const AdminPanel = () => <div className="p-4 text-muted-foreground">AdminPanel — coming soon</div>;
 
 export default function App() {
   return (
