@@ -4,15 +4,16 @@ import { AppHeader } from './AppHeader';
 import { BottomNav } from './BottomNav';
 
 export function ProtectedLayout() {
-  const { firebaseUser, loading } = useAuth();
+  // const { firebaseUser, loading } = useAuth();
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-background">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-    </div>
-  );
+  // TODO: Re-enable auth guard after preview
+  // if (loading) return (
+  //   <div className="flex items-center justify-center h-screen bg-background">
+  //     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+  //   </div>
+  // );
 
-  if (!firebaseUser) return <Navigate to="/login" replace />;
+  // if (!firebaseUser) return <Navigate to="/login" replace />;
 
   return (
     <div className="min-h-screen bg-background">
