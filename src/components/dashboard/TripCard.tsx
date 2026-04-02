@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 interface TripCardProps {
   trip: {
@@ -16,6 +17,8 @@ interface TripCardProps {
 }
 
 export function TripCard({ trip }: TripCardProps) {
+  const navigate = useNavigate();
+
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-2">
       <div className="flex items-center gap-2">
@@ -41,7 +44,7 @@ export function TripCard({ trip }: TripCardProps) {
       <p className="text-muted-foreground/60 text-xs">
         {trip.gasContribution ? `Gas: ₱${trip.gasContribution}` : 'Discuss with driver'}
       </p>
-      <Button className="w-full rounded-lg mt-1" size="sm">
+      <Button className="w-full rounded-lg mt-1" size="sm" onClick={() => navigate(`/trip/${trip.id}`)}>
         Join Trip
       </Button>
     </div>

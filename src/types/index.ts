@@ -32,6 +32,10 @@ export interface UserProfile {
   updatedAt: Timestamp;
   fcmToken?: string;
   lastActiveAt: Timestamp;
+  deleteAt?: Timestamp;
+  joinedTripIds?: string[];
+  consentVersion?: string;
+  consentAcceptedAt?: Timestamp;
 }
 
 export interface Trip {
