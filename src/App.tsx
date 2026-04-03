@@ -11,6 +11,7 @@ import { PostTrip } from '@/pages/PostTrip';
 import { TripDetail } from '@/pages/TripDetail';
 import { Profile } from '@/pages/Profile';
 import { AdminPanel } from '@/pages/AdminPanel';
+import { CompleteProfile } from '@/pages/CompleteProfile';
 import { TermsPage } from '@/pages/TermsPage';
 import { PrivacyPage } from '@/pages/PrivacyPage';
 import { Toaster } from '@/components/ui/toaster';
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/pending" element={<PendingApproval />} />
           <Route path="/safety/:linkId" element={<SafetyCard />} />
           <Route path="/manifest/:manifestId" element={<Manifest />} />
+          <Route path="/complete-profile" element={<CompleteProfile />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
 

@@ -4,8 +4,7 @@ import {
   collection, query, where, orderBy, onSnapshot,
   doc, updateDoc, addDoc, getDoc, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
-import { ref, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserProfile, Trip } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -28,7 +27,6 @@ function PendingTab() {
   const { toast } = useToast();
 
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [idPhotoUrls, setIdPhotoUrls] = useState<Record<string, string>>({});
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [rejectUid, setRejectUid] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState('');
@@ -47,21 +45,6 @@ function PendingTab() {
     );
     return unsub;
   }, []);
-
-  async function loadIdPhoto(uid: string) {
-    if (idPhotoUrls[uid]) {
-      setViewingId(uid);
-      return;
-    }
-    try {
-      const url = await getDownloadURL(ref(storage, `id-photos/${uid}/id.jpg`));
-      setIdPhotoUrls((prev) => ({ ...prev, [uid]: url }));
-      setViewingId(uid);
-    } catch (err: unknown) {
-      console.error(`Failed to load ID photo for user ${uid}:`, err);
-      toast({ title: 'Failed to load ID photo', variant: 'destructive' });
-    }
-  }
 
   async function handleApprove(uid: string) {
     if (!firebaseUser) return;
@@ -147,7 +130,7 @@ function PendingTab() {
           <p className="text-sm text-muted-foreground">Mobile: {u.mobileNumber}</p>
 
           <div className="flex gap-2 flex-wrap pt-1">
-            <Button size="sm" variant="outline" onClick={() => loadIdPhoto(u.uid)}>
+            <Button size="sm" variant="outline" onClick={() => setViewingId(u.uid)}>
               View ID
             </Button>
             <Button
@@ -194,19 +177,23 @@ function PendingTab() {
       ))}
 
       {/* ID Photo Modal */}
-      {viewingId && idPhotoUrls[viewingId] && (
-        <div
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-          onClick={() => setViewingId(null)}
-        >
-          <img
-            src={idPhotoUrls[viewingId]}
-            alt="ID Photo"
-            className="max-w-full max-h-full rounded-xl object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      {viewingId && (() => {
+        const photoUrl = users.find((u) => u.uid === viewingId)?.idPhotoUrl;
+        if (!photoUrl) return null;
+        return (
+          <div
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => setViewingId(null)}
+          >
+            <img
+              src={photoUrl}
+              alt="ID Photo"
+              className="max-w-full max-h-full rounded-xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }
