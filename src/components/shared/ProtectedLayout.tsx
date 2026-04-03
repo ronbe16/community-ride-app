@@ -75,11 +75,7 @@ export function ProtectedLayout() {
       </div>
     );
   }
-
   if (!firebaseUser) return <Navigate to="/login" replace />;
-
-  if (firebaseUser && !userProfile) return <Navigate to="/complete-profile" replace />;
-
   if (userProfile?.status === 'pending') return <Navigate to="/pending" replace />;
 
   if (userProfile?.status === 'rejected' || userProfile?.status === 'suspended') {
