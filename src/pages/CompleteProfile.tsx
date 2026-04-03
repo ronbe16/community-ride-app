@@ -1,8 +1,7 @@
 import { useState, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { uploadIdPhoto } from '@/lib/cloudinary';
 import { ninetyDaysFromNow } from '@/lib/retention';
 import { APP_NAME, CONSENT_VERSION, VEHICLE_MAX_AGE_YEARS } from '@/constants/app';
@@ -15,22 +14,27 @@ import type { UserRole } from '@/types';
 
 type Step = 1 | 2 | 3 | 4;
 
-export function Signup() {
+interface LocationState {
+  uid: string;
+  fullName: string;
+  email: string;
+}
+
+export function CompleteProfile() {
+  const { state } = useLocation() as { state: LocationState };
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [step, setStep] = useState<Step>(1);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Step 1
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // Step 1 — contact + role
   const [mobile, setMobile] = useState('');
   const [address, setAddress] = useState('');
   const [role, setRole] = useState<UserRole | null>(null);
 
-  // Step 2 (driver)
+  // Step 2 — vehicle (driver only)
   const [vehicleMake, setVehicleMake] = useState('');
   const [vehicleModel, setVehicleModel] = useState('');
   const [vehicleYear, setVehicleYear] = useState('');
@@ -38,23 +42,23 @@ export function Signup() {
   const [vehicleColor, setVehicleColor] = useState('');
   const [ltfrbPermit, setLtfrbPermit] = useState('');
 
-  // Step 3
+  // Step 3 — ID photo
   const [idPhoto, setIdPhoto] = useState<string | null>(null);
   const [idPhotoFile, setIdPhotoFile] = useState<File | null>(null);
 
-  // Step 4
+  // Step 4 — consent
   const [consent, setConsent] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const yearWarning = vehicleYear && Number(vehicleYear) < currentYear - VEHICLE_MAX_AGE_YEARS;
 
-  const canProceedStep1 = fullName && email && password.length >= 8 && mobile && address && role;
-
-  const canProceedStep2 = role === 'passenger' || (vehicleMake && vehicleModel && vehicleYear && plateNumber && vehicleColor);
+  const canProceedStep1 = mobile && address && role;
+  const canProceedStep2 =
+    role === 'passenger' || (vehicleMake && vehicleModel && vehicleYear && plateNumber && vehicleColor);
 
   const handleNext = () => {
     if (step === 1 && role === 'passenger') {
-      setStep(3); // skip vehicle
+      setStep(3);
     } else {
       setStep((s) => Math.min(s + 1, 4) as Step);
     }
@@ -79,16 +83,15 @@ export function Signup() {
   };
 
   const handleSubmit = async () => {
-    if (!idPhotoFile) return;
+    if (!idPhotoFile || !state) return;
     setError('');
     setLoading(true);
     try {
-      const { user } = await createUserWithEmailAndPassword(auth, email, password);
-      const idPhotoUrl = await uploadIdPhoto(idPhotoFile, user.uid);
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        fullName: fullName.trim(),
-        email: email.trim(),
+      const idPhotoUrl = await uploadIdPhoto(idPhotoFile, state.uid);
+      await setDoc(doc(db, 'users', state.uid), {
+        uid: state.uid,
+        fullName: state.fullName,
+        email: state.email,
         mobileNumber: mobile.trim(),
         homeAddress: address.trim(),
         role,
@@ -112,12 +115,20 @@ export function Signup() {
       });
       navigate('/pending');
     } catch (err: any) {
-      console.error('Registration failed for email', email, ':', err);
-      setError(err.message || 'Registration failed');
+      console.error(`Failed to complete profile for user ${state.uid}:`, err);
+      setError(err.message || 'Failed to complete profile');
     } finally {
       setLoading(false);
     }
   };
+
+  if (!state?.uid) {
+    navigate('/login', { replace: true });
+    return null;
+  }
+
+  const stepCount = role === 'driver' ? 4 : 3;
+  const displayStep = step === 1 ? 1 : step === 2 ? 2 : step === 3 ? (role === 'passenger' ? 2 : 3) : (role === 'passenger' ? 3 : 4);
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-8">
@@ -126,8 +137,9 @@ export function Signup() {
           <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-lg font-bold mx-auto mb-3">
             CR
           </div>
-          <h1 className="text-xl font-bold text-foreground">Join {APP_NAME}</h1>
-          <p className="text-muted-foreground text-sm mt-1">Step {step} of 4</p>
+          <h1 className="text-xl font-bold text-foreground">Complete your profile</h1>
+          <p className="text-muted-foreground text-sm mt-1">Step {displayStep} of {stepCount}</p>
+          <p className="text-muted-foreground text-sm mt-1">Signed in as <strong>{state.fullName || state.email}</strong></p>
         </div>
 
         {error && (
@@ -139,7 +151,7 @@ export function Signup() {
         <Card className="border-border shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">
-              {step === 1 && 'Basic Information'}
+              {step === 1 && 'Contact & Role'}
               {step === 2 && 'Vehicle Information'}
               {step === 3 && 'ID Verification'}
               {step === 4 && 'Terms & Consent'}
@@ -150,15 +162,11 @@ export function Signup() {
               <>
                 <div className="space-y-2">
                   <Label>Full Name</Label>
-                  <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Juan Dela Cruz" />
+                  <Input value={state.fullName} readOnly className="bg-muted text-muted-foreground" />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
-                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Password (min 8 characters)</Label>
-                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+                  <Input value={state.email} readOnly className="bg-muted text-muted-foreground" />
                 </div>
                 <div className="space-y-2">
                   <Label>Mobile Number</Label>
@@ -234,7 +242,6 @@ export function Signup() {
                 <div className="space-y-2">
                   <Label>LTFRB Carpooling Special Permit (optional)</Label>
                   <Input value={ltfrbPermit} onChange={(e) => setLtfrbPermit(e.target.value)} placeholder="Enter permit number" />
-                  <p className="text-xs text-muted-foreground">Have your LTFRB carpooling special permit? Enter it here (optional)</p>
                 </div>
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>
@@ -248,7 +255,7 @@ export function Signup() {
                 <div className="text-center space-y-3">
                   <p className="text-sm text-foreground font-medium">Upload a photo of your government ID</p>
                   <p className="text-xs text-muted-foreground">
-                    Our community admin will review this before activating your account. Your ID is stored securely and is only visible to the admin.
+                    Our community admin will review this before activating your account.
                   </p>
                   <div className="text-xs text-muted-foreground">
                     Accepted: PhilSys, Driver's License, Passport, SSS/GSIS, Voter's ID, PRC ID
@@ -317,20 +324,13 @@ export function Signup() {
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>
                   <Button onClick={handleSubmit} className="flex-1" disabled={!consent || loading}>
-                    {loading ? 'Creating account...' : 'Complete Registration'}
+                    {loading ? 'Saving...' : 'Complete Registration'}
                   </Button>
                 </div>
               </>
             )}
           </CardContent>
         </Card>
-
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          Already have an account?{' '}
-          <Link to="/login" className="text-primary font-medium hover:underline">
-            Sign in
-          </Link>
-        </p>
       </div>
     </div>
   );

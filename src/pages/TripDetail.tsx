@@ -4,8 +4,8 @@ import {
   doc, onSnapshot, getDoc, updateDoc, addDoc,
   collection, serverTimestamp, arrayUnion, arrayRemove, Timestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { uploadPassengerScan } from '@/lib/cloudinary';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Trip, PassengerEntry } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -280,9 +280,7 @@ export function TripDetail() {
       const file = input.files?.[0];
       if (!file || !tripId) return;
       try {
-        const storageRef = ref(storage, `passenger-scans/${tripId}/${index}.jpg`);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
+        const url = await uploadPassengerScan(file, tripId, index);
         const passenger = confirmedPassengers[index];
         if (passenger) {
           await updateDoc(doc(db, 'trips', tripId, 'passengers', passenger.uid), {

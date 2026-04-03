@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { APP_NAME, COMMUNITY_NAME } from '@/constants/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+const googleProvider = new GoogleAuthProvider();
 
 export function Login() {
   const navigate = useNavigate();
@@ -23,7 +26,37 @@ export function Login() {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/');
     } catch (err: any) {
+      console.error('Email sign-in failed for', email, ':', err);
       setError(err.message || 'Failed to sign in');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+      if (!userDoc.exists()) {
+        navigate('/complete-profile', {
+          state: {
+            uid: result.user.uid,
+            fullName: result.user.displayName || '',
+            email: result.user.email || '',
+          },
+        });
+      } else {
+        navigate('/');
+      }
+    } catch (err: any) {
+      console.error('Google sign-in failed:', err);
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        setError('An account already exists with this email. Please sign in with your password instead.');
+      } else {
+        setError('Google sign-in failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -45,12 +78,28 @@ export function Login() {
             <CardTitle className="text-lg text-center">Sign In</CardTitle>
           </CardHeader>
           <CardContent>
+            {error && (
+              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg mb-4">
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 rounded-xl py-3 text-gray-700 font-medium shadow-sm hover:bg-gray-50 disabled:opacity-50 mb-4"
+            >
+              <img src="/icons/google.svg" alt="" className="w-5 h-5" />
+              Continue with Google
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-gray-400 text-xs">or continue with email</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">
-                  {error}
-                </div>
-              )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input

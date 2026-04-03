@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { signOut } from 'firebase/auth';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage } from '@/lib/firebase';
+import { uploadLtfrbQr } from '@/lib/cloudinary';
+import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,9 +71,7 @@ export function Profile() {
     if (!file || !firebaseUser) return;
     setUploadingQr(true);
     try {
-      const storageRef = ref(storage, `ltfrb-qr/${firebaseUser.uid}/qr.jpg`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
+      const url = await uploadLtfrbQr(file, firebaseUser.uid);
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
         'vehicle.ltfrbQrPhotoUrl': url,
         updatedAt: serverTimestamp(),
