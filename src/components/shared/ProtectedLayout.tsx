@@ -68,16 +68,15 @@ export function ProtectedLayout() {
   const { firebaseUser, userProfile, loading, isAdmin } = useAuth();
   useNotifications();
 
-  // AUTH BYPASS — remove after testing
-  // if (loading) {
-  //   return (
-  //     <div className="flex items-center justify-center h-screen bg-background">
-  //       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-  //     </div>
-  //   );
-  // }
-  // if (!firebaseUser) return <Navigate to="/login" replace />;
-  // if (userProfile?.status === 'pending') return <Navigate to="/pending" replace />;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+  if (!firebaseUser) return <Navigate to="/login" replace />;
+  if (userProfile?.status === 'pending') return <Navigate to="/pending" replace />;
 
   if (userProfile?.status === 'rejected' || userProfile?.status === 'suspended') {
     return (
