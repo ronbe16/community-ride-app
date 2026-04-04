@@ -65,7 +65,7 @@ function ReconsentModal({ onAccept }: { onAccept: () => Promise<void> }) {
 }
 
 export function ProtectedLayout() {
-  const { firebaseUser, userProfile, loading, isAdmin } = useAuth();
+  const { firebaseUser, userProfile, loading } = useAuth();
   useNotifications();
 
   if (loading) {
@@ -106,12 +106,7 @@ export function ProtectedLayout() {
     });
   }
 
-  // Re-consent gate — only for verified/non-admin users who have a profile loaded
-  if (
-    userProfile &&
-    !isAdmin &&
-    userProfile.consentVersion !== CONSENT_VERSION
-  ) {
+  if (userProfile && userProfile.consentVersion !== CONSENT_VERSION) {
     return <ReconsentModal onAccept={handleReaccept} />;
   }
 

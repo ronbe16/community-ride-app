@@ -3,11 +3,15 @@ import { useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COMMUNITY_NAME } from '@/constants/app';
+import { ExchangePhoto } from '@/types';
 
 interface SafetyLinkData {
   communityName: string;
   driver: {
     fullName: string;
+    tripCount: number;
+    rating: number;
+    ratingCount: number;
     vehicle: {
       color: string;
       make: string;
@@ -22,6 +26,7 @@ interface SafetyLinkData {
     destination: string;
     departureTime: { toDate: () => Date };
   };
+  exchangePhotos?: Record<string, ExchangePhoto>;
   expiresAt: { toDate: () => Date };
 }
 
@@ -77,6 +82,8 @@ export function SafetyCard() {
   if (loading) return <LoadingScreen />;
   if (!data || expired) return <ExpiredScreen />;
 
+  const exchangePhotos = data.exchangePhotos ? Object.values(data.exchangePhotos) : [];
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 max-w-[480px] mx-auto">
       {/* Header */}
@@ -89,9 +96,18 @@ export function SafetyCard() {
       <div className="border border-gray-200 rounded-xl p-4 mb-4 bg-white">
         <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Driver</div>
         <div className="font-bold text-gray-900 text-lg">{data.driver.fullName}</div>
-        <div className="text-emerald-600 text-sm font-medium">✓ Community Verified</div>
+        <div className="flex items-center gap-2 mt-1">
+          {data.driver.rating > 0 ? (
+            <span className="text-amber-500 text-sm font-medium">⭐ {data.driver.rating.toFixed(1)}</span>
+          ) : (
+            <span className="text-gray-400 text-sm">New member</span>
+          )}
+          {data.driver.tripCount > 0 && (
+            <span className="text-gray-400 text-sm">· {data.driver.tripCount} trips</span>
+          )}
+        </div>
         {data.driver.vehicle.ltfrbPermitNumber && (
-          <div className="text-blue-600 text-sm">✓ LTFRB Permit #{data.driver.vehicle.ltfrbPermitNumber}</div>
+          <div className="text-blue-600 text-sm mt-1">✓ LTFRB Permit #{data.driver.vehicle.ltfrbPermitNumber}</div>
         )}
       </div>
 
@@ -121,9 +137,37 @@ export function SafetyCard() {
         </div>
       </div>
 
+      {/* Exchange photos */}
+      {exchangePhotos.length > 0 && (
+        <div className="border border-gray-200 rounded-xl p-4 mb-4 bg-white">
+          <div className="text-xs text-gray-400 uppercase tracking-wide mb-3">
+            Safety photos (deleted 24hrs after trip)
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {exchangePhotos.map((photo) => (
+              <div key={photo.publicId}>
+                <div className="aspect-square">
+                  <img
+                    src={photo.url}
+                    alt={photo.type}
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+                <div className="text-xs text-gray-400 text-center mt-1 capitalize">
+                  {photo.type}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-xs text-gray-400 mt-2 text-center">
+            These photos are automatically deleted 24 hours after the trip
+          </div>
+        </div>
+      )}
+
       {/* Expiry notice */}
       <div className="text-center text-gray-400 text-xs mb-4">
-        This link expires 48 hours after departure
+        This link expires 24 hours after departure
       </div>
 
       {/* Footer */}

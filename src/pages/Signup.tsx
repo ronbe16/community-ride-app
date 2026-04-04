@@ -1,119 +1,55 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { uploadIdPhoto } from '@/lib/cloudinary';
 import { ninetyDaysFromNow } from '@/lib/retention';
-import { APP_NAME, CONSENT_VERSION, VEHICLE_MAX_AGE_YEARS } from '@/constants/app';
+import { APP_NAME, CONSENT_VERSION } from '@/constants/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { UserRole } from '@/types';
-
-type Step = 1 | 2 | 3 | 4;
 
 export function Signup() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<Step>(1);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Step 1
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mobile, setMobile] = useState('');
-  const [address, setAddress] = useState('');
-  const [role, setRole] = useState<UserRole | null>(null);
-
-  // Step 2 (driver)
-  const [vehicleMake, setVehicleMake] = useState('');
-  const [vehicleModel, setVehicleModel] = useState('');
-  const [vehicleYear, setVehicleYear] = useState('');
-  const [plateNumber, setPlateNumber] = useState('');
-  const [vehicleColor, setVehicleColor] = useState('');
-  const [ltfrbPermit, setLtfrbPermit] = useState('');
-
-  // Step 3
-  const [idPhoto, setIdPhoto] = useState<string | null>(null);
-  const [idPhotoFile, setIdPhotoFile] = useState<File | null>(null);
-
-  // Step 4
   const [consent, setConsent] = useState(false);
 
-  const currentYear = new Date().getFullYear();
-  const yearWarning = vehicleYear && Number(vehicleYear) < currentYear - VEHICLE_MAX_AGE_YEARS;
+  const canSubmit = fullName && email && password.length >= 8 && mobile && consent;
 
-  const canProceedStep1 = fullName && email && password.length >= 8 && mobile && address && role;
-
-  const canProceedStep2 = role === 'passenger' || (vehicleMake && vehicleModel && vehicleYear && plateNumber && vehicleColor);
-
-  const handleNext = () => {
-    if (step === 1 && role === 'passenger') {
-      setStep(3); // skip vehicle
-    } else {
-      setStep((s) => Math.min(s + 1, 4) as Step);
-    }
-  };
-
-  const handleBack = () => {
-    if (step === 3 && role === 'passenger') {
-      setStep(1);
-    } else {
-      setStep((s) => Math.max(s - 1, 1) as Step);
-    }
-  };
-
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setIdPhotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setIdPhoto(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!idPhotoFile) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError('');
     setLoading(true);
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
-      const idPhotoUrl = await uploadIdPhoto(idPhotoFile, user.uid);
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         fullName: fullName.trim(),
         email: email.trim(),
-        mobileNumber: mobile.trim(),
-        homeAddress: address.trim(),
-        role,
-        vehicle: role === 'driver' ? {
-          make: vehicleMake.trim(),
-          model: vehicleModel.trim(),
-          year: Number(vehicleYear),
-          plateNumber: plateNumber.trim(),
-          color: vehicleColor.trim(),
-          ltfrbPermitNumber: ltfrbPermit.trim() || null,
-          ltfrbQrPhotoUrl: null,
-        } : null,
-        status: 'pending',
-        idPhotoUrl,
+        mobileNumber: '+63' + mobile.trim(),
         consentVersion: CONSENT_VERSION,
         consentAcceptedAt: serverTimestamp(),
         deleteAt: ninetyDaysFromNow(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         lastActiveAt: serverTimestamp(),
+        tripCount: 0,
+        rating: 0,
+        ratingCount: 0,
       });
-      navigate('/pending');
-    } catch (err: any) {
+      navigate('/');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Registration failed';
       console.error('Registration failed for email', email, ':', err);
-      setError(err.message || 'Registration failed');
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -127,7 +63,7 @@ export function Signup() {
             CR
           </div>
           <h1 className="text-xl font-bold text-foreground">Join {APP_NAME}</h1>
-          <p className="text-muted-foreground text-sm mt-1">Step {step} of 4</p>
+          <p className="text-muted-foreground text-sm mt-1">For Metrocor-B Homes residents only.</p>
         </div>
 
         {error && (
@@ -138,190 +74,79 @@ export function Signup() {
 
         <Card className="border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">
-              {step === 1 && 'Basic Information'}
-              {step === 2 && 'Vehicle Information'}
-              {step === 3 && 'ID Verification'}
-              {step === 4 && 'Terms & Consent'}
-            </CardTitle>
+            <CardTitle className="text-lg">Create your account</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {step === 1 && (
-              <>
-                <div className="space-y-2">
-                  <Label>Full Name</Label>
-                  <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Juan Dela Cruz" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Password (min 8 characters)</Label>
-                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Mobile Number</Label>
-                  <div className="flex gap-2">
-                    <span className="flex items-center px-3 bg-muted rounded-md text-sm text-muted-foreground">+63</span>
-                    <Input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="9171234567" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Your address within the village</Label>
-                  <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Block 5, Lot 12, Phase 2" />
-                </div>
-                <div className="space-y-2">
-                  <Label>I want to...</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setRole('passenger')}
-                      className={`p-4 rounded-xl border-2 text-center transition-all ${
-                        role === 'passenger'
-                          ? 'border-primary bg-primary-light text-foreground'
-                          : 'border-border bg-card text-muted-foreground'
-                      }`}
-                    >
-                      <span className="text-2xl block mb-1">🚗</span>
-                      <span className="text-sm font-medium">I need rides</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRole('driver')}
-                      className={`p-4 rounded-xl border-2 text-center transition-all ${
-                        role === 'driver'
-                          ? 'border-primary bg-primary-light text-foreground'
-                          : 'border-border bg-card text-muted-foreground'
-                      }`}
-                    >
-                      <span className="text-2xl block mb-1">🛺</span>
-                      <span className="text-sm font-medium">I can drive</span>
-                    </button>
-                  </div>
-                </div>
-                <Button onClick={handleNext} className="w-full" disabled={!canProceedStep1}>
-                  Next
-                </Button>
-              </>
-            )}
-
-            {step === 2 && (
-              <>
-                <div className="space-y-2">
-                  <Label>Vehicle Make</Label>
-                  <Input value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} placeholder="Toyota" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Vehicle Model</Label>
-                  <Input value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} placeholder="Innova" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Vehicle Year</Label>
-                  <Input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)} placeholder={String(currentYear)} />
-                  {yearWarning && (
-                    <p className="text-warning text-xs">⚠️ Vehicle is older than {VEHICLE_MAX_AGE_YEARS} years</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Plate Number</Label>
-                  <Input value={plateNumber} onChange={(e) => setPlateNumber(e.target.value)} placeholder="ABC 1234" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Color</Label>
-                  <Input value={vehicleColor} onChange={(e) => setVehicleColor(e.target.value)} placeholder="White" />
-                </div>
-                <div className="space-y-2">
-                  <Label>LTFRB Carpooling Special Permit (optional)</Label>
-                  <Input value={ltfrbPermit} onChange={(e) => setLtfrbPermit(e.target.value)} placeholder="Enter permit number" />
-                  <p className="text-xs text-muted-foreground">Have your LTFRB carpooling special permit? Enter it here (optional)</p>
-                </div>
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>
-                  <Button onClick={handleNext} className="flex-1" disabled={!canProceedStep2}>Next</Button>
-                </div>
-              </>
-            )}
-
-            {step === 3 && (
-              <>
-                <div className="text-center space-y-3">
-                  <p className="text-sm text-foreground font-medium">Upload a photo of your government ID</p>
-                  <p className="text-xs text-muted-foreground">
-                    Our community admin will review this before activating your account. Your ID is stored securely and is only visible to the admin.
-                  </p>
-                  <div className="text-xs text-muted-foreground">
-                    Accepted: PhilSys, Driver's License, Passport, SSS/GSIS, Voter's ID, PRC ID
-                  </div>
-                </div>
-
-                {idPhoto ? (
-                  <div className="relative">
-                    <img src={idPhoto} alt="ID Preview" className="w-full rounded-xl border border-border" />
-                    <button
-                      onClick={() => { setIdPhoto(null); setIdPhotoFile(null); }}
-                      className="absolute top-2 right-2 bg-card rounded-full w-8 h-8 flex items-center justify-center text-destructive shadow-sm border border-border"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-12 border-2 border-dashed border-border rounded-xl text-muted-foreground hover:border-primary transition-colors"
-                  >
-                    <span className="text-3xl block mb-2">📷</span>
-                    <span className="text-sm">Tap to capture or upload</span>
-                  </button>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoCapture}
-                  className="hidden"
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+                <Input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Juan Dela Cruz"
+                  required
                 />
+              </div>
 
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>
-                  <Button onClick={handleNext} className="flex-1" disabled={!idPhoto}>Next</Button>
-                </div>
-              </>
-            )}
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@email.com"
+                  required
+                />
+              </div>
 
-            {step === 4 && (
-              <>
-                <div className="space-y-3 text-sm text-muted-foreground">
-                  <p>
-                    By registering, you agree to our{' '}
-                    <Link to="/terms" className="text-primary underline">Terms of Use</Link> and{' '}
-                    <Link to="/privacy" className="text-primary underline">Privacy Policy</Link>.
-                  </p>
-                  <p>
-                    Your data is stored locally within this community's database. Trip history is automatically deleted after 90 days. ID photos are visible only to the community admin.
-                  </p>
-                </div>
+              <div className="space-y-2">
+                <Label>Password (min 8 characters)</Label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
 
-                <div className="flex items-start gap-3 py-2">
-                  <Checkbox
-                    id="consent"
-                    checked={consent}
-                    onCheckedChange={(checked) => setConsent(checked === true)}
+              <div className="space-y-2">
+                <Label>Mobile Number</Label>
+                <div className="flex gap-2">
+                  <span className="flex items-center px-3 bg-muted rounded-md text-sm text-muted-foreground">+63</span>
+                  <Input
+                    type="tel"
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value)}
+                    placeholder="9171234567"
+                    required
                   />
-                  <label htmlFor="consent" className="text-sm text-foreground cursor-pointer leading-tight">
-                    I have read and agree to the Terms of Use and Privacy Policy
-                  </label>
                 </div>
+              </div>
 
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>
-                  <Button onClick={handleSubmit} className="flex-1" disabled={!consent || loading}>
-                    {loading ? 'Creating account...' : 'Complete Registration'}
-                  </Button>
-                </div>
-              </>
-            )}
+              <div className="bg-muted/50 rounded-xl p-4 text-sm text-muted-foreground">
+                By joining, you agree to our{' '}
+                <Link to="/terms" className="text-primary underline">Terms of Use</Link>
+                {' '}and{' '}
+                <Link to="/privacy" className="text-primary underline">Privacy Policy</Link>.
+                Trip history is deleted after 90 days.
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="consent"
+                  checked={consent}
+                  onCheckedChange={(checked) => setConsent(checked === true)}
+                />
+                <label htmlFor="consent" className="text-sm text-foreground cursor-pointer leading-tight">
+                  I agree to the Terms of Use and Privacy Policy
+                </label>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={!canSubmit || loading}>
+                {loading ? 'Creating account…' : 'Join Now'}
+              </Button>
+            </form>
           </CardContent>
         </Card>
 

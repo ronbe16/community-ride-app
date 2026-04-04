@@ -9,13 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
-const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  pending: { label: 'Awaiting approval', className: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-  verified: { label: 'Verified ✓', className: 'bg-green-50 text-green-700 border-green-200' },
-  rejected: { label: 'Not approved', className: 'bg-red-50 text-red-700 border-red-200' },
-  suspended: { label: 'Suspended', className: 'bg-red-50 text-red-700 border-red-200' },
-};
-
 export function Profile() {
   const { firebaseUser, userProfile } = useAuth();
   const { toast } = useToast();
@@ -24,8 +17,15 @@ export function Profile() {
   const [fullName, setFullName] = useState(userProfile?.fullName ?? '');
   const [mobileNumber, setMobileNumber] = useState(userProfile?.mobileNumber ?? '');
   const [homeAddress, setHomeAddress] = useState(userProfile?.homeAddress ?? '');
-  const [ltfrbPermitNumber, setLtfrbPermitNumber] = useState(userProfile?.vehicle?.ltfrbPermitNumber ?? '');
   const [saving, setSaving] = useState(false);
+
+  // Vehicle fields — pre-filled if vehicle already exists
+  const [vehicleMake, setVehicleMake] = useState(userProfile?.vehicle?.make ?? '');
+  const [vehicleModel, setVehicleModel] = useState(userProfile?.vehicle?.model ?? '');
+  const [vehicleYear, setVehicleYear] = useState(userProfile?.vehicle?.year ? String(userProfile.vehicle.year) : '');
+  const [plateNumber, setPlateNumber] = useState(userProfile?.vehicle?.plateNumber ?? '');
+  const [vehicleColor, setVehicleColor] = useState(userProfile?.vehicle?.color ?? '');
+  const [ltfrbPermitNumber, setLtfrbPermitNumber] = useState(userProfile?.vehicle?.ltfrbPermitNumber ?? '');
   const [uploadingQr, setUploadingQr] = useState(false);
 
   async function handleSaveProfile(e: React.FormEvent) {
@@ -50,14 +50,26 @@ export function Profile() {
 
   async function handleSaveVehicle(e: React.FormEvent) {
     e.preventDefault();
-    if (!firebaseUser || !userProfile?.vehicle) return;
+    if (!firebaseUser) return;
+    if (!vehicleMake || !vehicleModel || !vehicleYear || !plateNumber || !vehicleColor) {
+      toast({ title: 'Please fill in all vehicle fields', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        'vehicle.ltfrbPermitNumber': ltfrbPermitNumber.trim() || null,
+        vehicle: {
+          make: vehicleMake.trim(),
+          model: vehicleModel.trim(),
+          year: Number(vehicleYear),
+          plateNumber: plateNumber.trim(),
+          color: vehicleColor.trim(),
+          ltfrbPermitNumber: ltfrbPermitNumber.trim() || null,
+          ltfrbQrPhotoUrl: userProfile?.vehicle?.ltfrbQrPhotoUrl ?? null,
+        },
         updatedAt: serverTimestamp(),
       });
-      toast({ title: 'Vehicle info updated' });
+      toast({ title: 'Vehicle info saved' });
     } catch (err: unknown) {
       console.error(`Failed to update vehicle info for user ${firebaseUser.uid}:`, err);
       toast({ title: 'Failed to save', description: 'Please try again.', variant: 'destructive' });
@@ -85,27 +97,26 @@ export function Profile() {
     }
   }
 
-  const statusInfo = userProfile?.status ? STATUS_LABELS[userProfile.status] : null;
+  const trustSignal = userProfile
+    ? userProfile.ratingCount > 0
+      ? `⭐ ${userProfile.rating.toFixed(1)} · ${userProfile.tripCount} trips`
+      : userProfile.tripCount > 0
+        ? `${userProfile.tripCount} trips`
+        : 'New member'
+    : '';
 
   return (
     <div className="space-y-6 pt-4 pb-8">
-      <h1 className="text-foreground font-semibold text-xl">My profile</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-foreground font-semibold text-xl">My profile</h1>
+        {trustSignal && (
+          <span className="text-sm text-muted-foreground">{trustSignal}</span>
+        )}
+      </div>
 
       {/* Account Info */}
       <form onSubmit={handleSaveProfile} className="bg-card border border-border rounded-xl p-4 space-y-4">
         <h2 className="text-foreground font-medium">Account</h2>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-muted-foreground">Role:</span>
-          <span className="bg-primary-light text-primary text-xs px-2 py-0.5 rounded-full capitalize">
-            {userProfile?.role ?? '—'}
-          </span>
-          {statusInfo && (
-            <span className={`text-xs px-2 py-0.5 rounded-full border ${statusInfo.className}`}>
-              {statusInfo.label}
-            </span>
-          )}
-        </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="fullName">Full name</Label>
@@ -132,6 +143,7 @@ export function Profile() {
             id="address"
             value={homeAddress}
             onChange={(e) => setHomeAddress(e.target.value)}
+            placeholder="Block 5, Lot 12, Phase 2"
           />
         </div>
 
@@ -140,26 +152,77 @@ export function Profile() {
         </Button>
       </form>
 
-      {/* Driver Section */}
-      {userProfile?.role === 'driver' && userProfile.vehicle && (
-        <form onSubmit={handleSaveVehicle} className="bg-card border border-border rounded-xl p-4 space-y-4">
+      {/* Vehicle Section — optional, for members who want to post trips */}
+      <form onSubmit={handleSaveVehicle} className="bg-card border border-border rounded-xl p-4 space-y-4">
+        <div>
           <h2 className="text-foreground font-medium">Vehicle</h2>
+          <p className="text-muted-foreground text-xs mt-0.5">
+            Fill this in if you plan to post trips as a driver.
+          </p>
+        </div>
 
-          <div className="text-sm text-muted-foreground space-y-0.5">
-            <p>{userProfile.vehicle.color} {userProfile.vehicle.make} {userProfile.vehicle.model}</p>
-            <p>Plate: <span className="font-mono font-bold">{userProfile.vehicle.plateNumber}</span></p>
-          </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="vehicleMake">Make</Label>
+          <Input
+            id="vehicleMake"
+            value={vehicleMake}
+            onChange={(e) => setVehicleMake(e.target.value)}
+            placeholder="Toyota"
+          />
+        </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="ltfrbPermit">LTFRB Permit number</Label>
-            <Input
-              id="ltfrbPermit"
-              placeholder="e.g. 12345678"
-              value={ltfrbPermitNumber}
-              onChange={(e) => setLtfrbPermitNumber(e.target.value)}
-            />
-          </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="vehicleModel">Model</Label>
+          <Input
+            id="vehicleModel"
+            value={vehicleModel}
+            onChange={(e) => setVehicleModel(e.target.value)}
+            placeholder="Innova"
+          />
+        </div>
 
+        <div className="space-y-1.5">
+          <Label htmlFor="vehicleYear">Year</Label>
+          <Input
+            id="vehicleYear"
+            type="number"
+            value={vehicleYear}
+            onChange={(e) => setVehicleYear(e.target.value)}
+            placeholder={String(new Date().getFullYear())}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="plateNumber">Plate number</Label>
+          <Input
+            id="plateNumber"
+            value={plateNumber}
+            onChange={(e) => setPlateNumber(e.target.value)}
+            placeholder="ABC 1234"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="vehicleColor">Color</Label>
+          <Input
+            id="vehicleColor"
+            value={vehicleColor}
+            onChange={(e) => setVehicleColor(e.target.value)}
+            placeholder="White"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="ltfrbPermit">LTFRB Permit number (optional)</Label>
+          <Input
+            id="ltfrbPermit"
+            value={ltfrbPermitNumber}
+            onChange={(e) => setLtfrbPermitNumber(e.target.value)}
+            placeholder="Enter permit number"
+          />
+        </div>
+
+        {userProfile?.vehicle && (
           <div className="space-y-1.5">
             <Label>LTFRB QR sticker photo</Label>
             {userProfile.vehicle.ltfrbQrPhotoUrl && (
@@ -186,12 +249,12 @@ export function Profile() {
               {uploadingQr ? 'Uploading…' : userProfile.vehicle.ltfrbQrPhotoUrl ? 'Replace QR photo' : 'Upload QR sticker photo'}
             </Button>
           </div>
+        )}
 
-          <Button type="submit" className="w-full rounded-xl" disabled={saving}>
-            {saving ? 'Saving…' : 'Save vehicle info'}
-          </Button>
-        </form>
-      )}
+        <Button type="submit" className="w-full rounded-xl" disabled={saving}>
+          {saving ? 'Saving…' : 'Save vehicle info'}
+        </Button>
+      </form>
 
       {/* Sign Out */}
       <Button

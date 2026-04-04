@@ -1,17 +1,21 @@
+import { useState } from 'react';
 import { COMMUNITY_NAME } from '@/constants/app';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { TripCard } from '@/components/dashboard/TripCard';
-import { StatusAlert } from '@/components/dashboard/StatusAlert';
 import { useTrips } from '@/hooks/useTrips';
 import { useMyTrips } from '@/hooks/useMyTrips';
 import { useMyJoinedTrips } from '@/hooks/useMyJoinedTrips';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { ninetyDaysFromNow } from '@/lib/retention';
 
 export function Dashboard() {
-  const { userProfile } = useAuth();
+  const { userProfile, firebaseUser } = useAuth();
   const navigate = useNavigate();
-  const isDriver = userProfile?.role === 'driver';
+  const { toast } = useToast();
   const firstName = userProfile?.fullName?.split(' ')[0] || 'Neighbor';
 
   const now = new Date();
@@ -26,6 +30,34 @@ export function Dashboard() {
   const activeDriverTrip = myTrips.find((t) => t.status === 'open');
   const todayJoinedTrip = joinedTrips[0] ?? null;
 
+  // Rating prompts — departed trips the current user was involved in but hasn't rated yet
+  const [ratedTripIds, setRatedTripIds] = useState<Set<string>>(new Set());
+  const [selectedRatings, setSelectedRatings] = useState<Record<string, number>>({});
+
+  const departedJoinedTrips = joinedTrips.filter(
+    (t) => t.status === 'departed' && !ratedTripIds.has(t.id),
+  );
+
+  async function handleRate(tripId: string, toUid: string, stars: number) {
+    if (!firebaseUser) return;
+    setSelectedRatings((prev) => ({ ...prev, [tripId]: stars }));
+    try {
+      await addDoc(collection(db, 'ratings'), {
+        tripId,
+        fromUid: firebaseUser.uid,
+        toUid,
+        stars,
+        createdAt: serverTimestamp(),
+        deleteAt: ninetyDaysFromNow(),
+      });
+      setRatedTripIds((prev) => new Set([...prev, tripId]));
+      toast({ title: 'Rating submitted!' });
+    } catch (err: unknown) {
+      console.error(`Failed to submit rating for trip ${tripId}:`, err);
+      toast({ title: 'Failed to submit rating', variant: 'destructive' });
+    }
+  }
+
   return (
     <div className="space-y-4 pt-4">
       {/* Section 1: Welcome Banner */}
@@ -34,11 +66,8 @@ export function Dashboard() {
         <p className="text-muted-foreground text-sm">{COMMUNITY_NAME} · {dateStr}</p>
       </div>
 
-      {/* Section 2: Status Alert */}
-      <StatusAlert status={userProfile?.status} rejectionNote={userProfile?.rejectionNote} />
-
-      {/* Section 3: Active Trip (driver only) */}
-      {isDriver && activeDriverTrip && (
+      {/* Section 2: Active posted trip */}
+      {activeDriverTrip && (
         <div className="bg-primary-light border border-primary/20 rounded-xl p-4">
           <p className="text-foreground font-medium">🛺 Your active trip</p>
           <p className="text-sm text-muted-foreground mt-1">
@@ -53,23 +82,43 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Section 4: Quick Action Buttons */}
-      <div className={`grid gap-3 ${isDriver ? 'grid-cols-2' : 'grid-cols-1'}`}>
-        {isDriver ? (
-          <>
-            <Button className="h-14 rounded-xl text-sm font-medium" onClick={() => navigate('/post-trip')}>
-              Post a Trip ➕
-            </Button>
-            <Button variant="outline" className="h-14 rounded-xl text-sm font-medium" onClick={() => navigate('/profile')}>
-              My Profile 👤
-            </Button>
-          </>
-        ) : (
-          <Button className="h-14 rounded-xl text-sm font-medium w-full" onClick={() => navigate('/')}>
-            Find a Ride 🔍
-          </Button>
-        )}
+      {/* Section 3: Quick Actions — same for everyone */}
+      <div className="grid grid-cols-2 gap-3">
+        <Button className="h-14 rounded-xl text-sm font-medium" onClick={() => navigate('/post-trip')}>
+          Post a Trip ➕
+        </Button>
+        <Button variant="outline" className="h-14 rounded-xl text-sm font-medium" onClick={() => navigate('/profile')}>
+          My Profile 👤
+        </Button>
       </div>
+
+      {/* Section 4: Rating prompts for departed trips */}
+      {departedJoinedTrips.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-foreground font-semibold">Rate your recent trips</h2>
+          {departedJoinedTrips.map((trip) => (
+            <div key={trip.id} className="bg-white border border-gray-200 rounded-xl p-4">
+              <div className="font-medium text-gray-900 mb-1">
+                How was your trip to {trip.destination}?
+              </div>
+              <div className="text-gray-500 text-sm mb-3">
+                Rate {trip.driverName}
+              </div>
+              <div className="flex gap-2 justify-center">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => handleRate(trip.id, trip.driverUid, star)}
+                    className="text-3xl hover:scale-110 transition-transform"
+                  >
+                    {star <= (selectedRatings[trip.id] ?? 0) ? '⭐' : '☆'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Section 5: Available Trips */}
       <div>
@@ -86,7 +135,8 @@ export function Dashboard() {
                 trip={{
                   id: trip.id,
                   driverName: trip.driverName,
-                  verified: true,
+                  driverRating: trip.driverRating,
+                  driverTripCount: trip.driverTripCount,
                   vehicle: {
                     color: trip.vehicle.color,
                     make: trip.vehicle.make,
@@ -110,8 +160,8 @@ export function Dashboard() {
         )}
       </div>
 
-      {/* Section 6: My Upcoming Ride (passenger) */}
-      {!isDriver && todayJoinedTrip && (
+      {/* Section 6: My upcoming ride */}
+      {todayJoinedTrip && todayJoinedTrip.status === 'open' && (
         <div>
           <h2 className="text-foreground font-semibold mb-3">My ride today</h2>
           <div className="bg-card border border-border rounded-xl p-4">
@@ -130,7 +180,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Section 7: Footer */}
+      {/* Footer */}
       <p className="text-muted-foreground/60 text-xs text-center py-4">
         Community Ride · {COMMUNITY_NAME}
       </p>
