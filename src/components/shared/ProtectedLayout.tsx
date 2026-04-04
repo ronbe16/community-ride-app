@@ -75,10 +75,25 @@ export function ProtectedLayout() {
       </div>
     );
   }
-
   if (!firebaseUser) return <Navigate to="/login" replace />;
+  if (userProfile?.status === 'pending') return <Navigate to="/pending" replace />;
 
-  if (firebaseUser && !userProfile) return <Navigate to="/complete-profile" replace />;
+  if (userProfile?.status === 'rejected' || userProfile?.status === 'suspended') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center">
+        <span className="text-6xl">🚫</span>
+        <h1 className="text-xl font-semibold text-foreground mt-4">
+          {userProfile.status === 'rejected' ? 'Account not approved' : 'Account suspended'}
+        </h1>
+        {userProfile.rejectionNote && (
+          <p className="text-muted-foreground text-sm mt-2">Reason: {userProfile.rejectionNote}</p>
+        )}
+        <p className="text-muted-foreground text-sm mt-2">
+          Contact your community admin for assistance.
+        </p>
+      </div>
+    );
+  }
 
   async function handleReaccept() {
     if (!firebaseUser) return;
