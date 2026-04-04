@@ -5,7 +5,8 @@ interface TripCardProps {
   trip: {
     id: string;
     driverName: string;
-    verified: boolean;
+    driverRating?: number;
+    driverTripCount?: number;
     vehicle: { color: string; make: string; model: string; plateLastThree: string };
     origin: string;
     destination: string;
@@ -23,11 +24,14 @@ export function TripCard({ trip }: TripCardProps) {
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-foreground font-medium text-sm">{trip.driverName}</span>
-        {trip.verified && (
-          <span className="bg-primary-light text-primary text-xs px-2 py-0.5 rounded-full font-medium">
-            ✓ Verified
-          </span>
+        {trip.driverRating && trip.driverRating > 0 ? (
+          <span className="text-amber-500 text-xs">⭐ {trip.driverRating.toFixed(1)}</span>
+        ) : (
+          <span className="text-muted-foreground text-xs">New member</span>
         )}
+        {trip.driverTripCount && trip.driverTripCount > 0 ? (
+          <span className="text-muted-foreground text-xs">· {trip.driverTripCount} trips</span>
+        ) : null}
       </div>
       <p className="text-muted-foreground text-xs">
         {trip.vehicle.color} {trip.vehicle.make} {trip.vehicle.model} · Plate: ***{trip.vehicle.plateLastThree}

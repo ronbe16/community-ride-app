@@ -3,14 +3,12 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedLayout } from '@/components/shared/ProtectedLayout';
 import { Login } from '@/pages/Login';
 import { Signup } from '@/pages/Signup';
-import { PendingApproval } from '@/pages/PendingApproval';
 import { Dashboard } from '@/pages/Dashboard';
 import { SafetyCard } from '@/pages/SafetyCard';
 import { Manifest } from '@/pages/Manifest';
 import { PostTrip } from '@/pages/PostTrip';
 import { TripDetail } from '@/pages/TripDetail';
 import { Profile } from '@/pages/Profile';
-import { AdminPanel } from '@/pages/AdminPanel';
 import { CompleteProfile } from '@/pages/CompleteProfile';
 import { TermsPage } from '@/pages/TermsPage';
 import { PrivacyPage } from '@/pages/PrivacyPage';
@@ -27,7 +25,6 @@ export default function App() {
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/pending" element={<PendingApproval />} />
           <Route path="/safety/:linkId" element={<SafetyCard />} />
           <Route path="/manifest/:manifestId" element={<Manifest />} />
           <Route path="/complete-profile" element={<CompleteProfile />} />
@@ -40,7 +37,6 @@ export default function App() {
             <Route path="/post-trip" element={<PostTrip />} />
             <Route path="/trip/:tripId" element={<TripDetail />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/admin" element={<AdminPanel />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

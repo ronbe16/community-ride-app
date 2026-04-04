@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   doc, onSnapshot, getDoc, updateDoc, addDoc,
   collection, serverTimestamp, arrayUnion, arrayRemove, Timestamp,
 } from 'firebase/firestore';
 import { uploadPassengerScan } from '@/lib/cloudinary';
+import { uploadExchangePhoto } from '@/lib/safety-exchange';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Trip, PassengerEntry } from '@/types';
+import { Trip, PassengerEntry, PhotoType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { COMMUNITY_NAME, SAFETY_LINK_EXPIRY_HOURS } from '@/constants/app';
+import { ninetyDaysFromNow } from '@/lib/retention';
 
 function formatTime(ts: Timestamp) {
   return ts.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
@@ -23,6 +25,12 @@ function formatDatetime(ts: Timestamp) {
   });
 }
 
+function isWithinTwoHours(departureTime: Timestamp): boolean {
+  const now = Date.now();
+  const departure = departureTime.toDate().getTime();
+  return departure - now <= 2 * 60 * 60 * 1000 && departure > now - 60 * 60 * 1000;
+}
+
 export function TripDetail() {
   const { tripId } = useParams<{ tripId: string }>();
   const { firebaseUser, userProfile } = useAuth();
@@ -33,6 +41,9 @@ export function TripDetail() {
   const [passengers, setPassengers] = useState<PassengerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState<PhotoType | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const pendingPhotoType = useRef<PhotoType | null>(null);
 
   useEffect(() => {
     if (!tripId) return;
@@ -88,6 +99,8 @@ export function TripDetail() {
     : false;
   const seatsLeft = trip.availableSeats - trip.filledSeats;
   const isFull = seatsLeft <= 0;
+  const showExchange = trip.status === 'open' && isWithinTwoHours(trip.departureTime);
+  const exchangePhotoCount = trip.exchangePhotos ? Object.keys(trip.exchangePhotos).length : 0;
 
   async function handleJoin() {
     if (!firebaseUser || !userProfile || !tripId) return;
@@ -169,21 +182,33 @@ export function TripDetail() {
   async function handleShareDriverInfo() {
     if (!firebaseUser || !tripId) return;
     try {
+      // Fetch driver trust signals
+      const driverDoc = await getDoc(doc(db, 'users', trip.driverUid));
+      const driverData = driverDoc.exists() ? driverDoc.data() : null;
+
       const expiresAt = Timestamp.fromMillis(
-        Date.now() + SAFETY_LINK_EXPIRY_HOURS * 60 * 60 * 1000,
+        trip.departureTime.toDate().getTime() + 24 * 60 * 60 * 1000,
       );
       const linkDoc = await addDoc(collection(db, 'safety_links'), {
+        type: 'driver_safety_card',
+        generatedBy: firebaseUser.uid,
+        tripId,
         communityName: COMMUNITY_NAME,
         driver: {
           fullName: trip.driverName,
           vehicle: trip.vehicle,
+          tripCount: driverData?.tripCount ?? 0,
+          rating: driverData?.rating ?? 0,
+          ratingCount: driverData?.ratingCount ?? 0,
         },
         trip: {
           origin: trip.origin,
           destination: trip.destination,
           departureTime: trip.departureTime,
         },
+        exchangePhotos: trip.exchangePhotos ?? {},
         expiresAt,
+        deleteAt: ninetyDaysFromNow(),
         createdAt: serverTimestamp(),
       });
       const url = `${window.location.origin}/safety/${linkDoc.id}`;
@@ -198,6 +223,10 @@ export function TripDetail() {
       console.error(`Failed to generate safety link for trip ${tripId}:`, err);
       toast({ title: 'Failed to generate link', description: 'Please try again.', variant: 'destructive' });
     }
+  }
+
+  async function handleShareSafetyLink() {
+    await handleShareDriverInfo();
   }
 
   async function handleGenerateManifest() {
@@ -247,7 +276,6 @@ export function TripDetail() {
         status: 'cancelled',
         updatedAt: serverTimestamp(),
       });
-      // Queue notifications for each confirmed passenger
       for (const p of confirmedPassengers) {
         const pDoc = await getDoc(doc(db, 'users', p.uid));
         if (pDoc.exists() && pDoc.data().fcmToken) {
@@ -297,16 +325,43 @@ export function TripDetail() {
     input.click();
   }
 
+  function openCamera(type: PhotoType) {
+    pendingPhotoType.current = type;
+    cameraInputRef.current?.click();
+  }
+
+  async function handleExchangePhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const type = pendingPhotoType.current;
+    if (!file || !type || !tripId || !firebaseUser) return;
+    // Reset so the same type can be re-captured
+    e.target.value = '';
+    setUploadingPhoto(type);
+    try {
+      await uploadExchangePhoto(file, tripId, firebaseUser.uid, type);
+      toast({ title: 'Photo saved', description: `${type} photo added to your safety link.` });
+    } catch (err: unknown) {
+      console.error(`Failed to upload exchange photo (${type}) for trip ${tripId}:`, err);
+      toast({ title: 'Failed to upload photo', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setUploadingPhoto(null);
+    }
+  }
+
   return (
     <div className="space-y-4 pt-4">
       {/* Driver Info Card */}
       <div className="bg-card border border-border rounded-xl p-4 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-foreground font-semibold">{trip.driverName}</span>
-          <span className="bg-primary-light text-primary text-xs px-2 py-0.5 rounded-full font-medium">✓ Community Verified</span>
-          {trip.vehicle.ltfrbPermitNumber && (
-            <span className="bg-blue-50 text-blue-600 text-xs px-2 py-0.5 rounded-full font-medium">✓ LTFRB Verified</span>
+          {trip.driverRating && trip.driverRating > 0 ? (
+            <span className="text-amber-500 text-sm font-medium">⭐ {trip.driverRating.toFixed(1)}</span>
+          ) : (
+            <span className="text-muted-foreground text-sm">New member</span>
           )}
+          {trip.driverTripCount && trip.driverTripCount > 0 ? (
+            <span className="text-muted-foreground text-sm">· {trip.driverTripCount} trips</span>
+          ) : null}
         </div>
         <p className="text-muted-foreground text-sm">
           {trip.vehicle.color} {trip.vehicle.make} {trip.vehicle.model}
@@ -371,6 +426,51 @@ export function TripDetail() {
               {actionLoading ? 'Joining…' : 'Join this trip'}
             </Button>
           )}
+        </div>
+      )}
+
+      {/* Optional safety photo exchange — shown when trip departs within 2 hours */}
+      {showExchange && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="font-medium text-amber-800 mb-1">Optional safety exchange</div>
+          <div className="text-amber-700 text-sm mb-3">
+            Take a photo of the driver, their ID, or the plate number.
+            Photos are shared with your safety contact and deleted after 24 hours.
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {(['face', 'id', 'plate'] as PhotoType[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => openCamera(type)}
+                disabled={uploadingPhoto === type}
+                className="flex flex-col items-center gap-1 bg-white border border-amber-200 rounded-xl p-3 text-xs text-amber-700 disabled:opacity-50"
+              >
+                <span className="text-2xl">
+                  {type === 'face' ? '🤳' : type === 'id' ? '🪪' : '🚗'}
+                </span>
+                {uploadingPhoto === type ? 'Saving…' : type === 'face' ? 'Face photo' : type === 'id' ? 'ID card' : 'Plate number'}
+              </button>
+            ))}
+          </div>
+
+          {exchangePhotoCount > 0 && (
+            <button
+              onClick={handleShareSafetyLink}
+              className="w-full mt-3 bg-emerald-500 text-white rounded-xl py-2 text-sm font-medium"
+            >
+              Share safety link to family 🤝
+            </button>
+          )}
+
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleExchangePhotoCapture}
+          />
         </div>
       )}
 

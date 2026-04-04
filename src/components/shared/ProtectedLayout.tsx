@@ -65,7 +65,7 @@ function ReconsentModal({ onAccept }: { onAccept: () => Promise<void> }) {
 }
 
 export function ProtectedLayout() {
-  const { firebaseUser, userProfile, loading, isAdmin } = useAuth();
+  const { firebaseUser, userProfile, loading } = useAuth();
   useNotifications();
 
   if (loading) {
@@ -80,25 +80,6 @@ export function ProtectedLayout() {
 
   if (firebaseUser && !userProfile) return <Navigate to="/complete-profile" replace />;
 
-  if (userProfile?.status === 'pending') return <Navigate to="/pending" replace />;
-
-  if (userProfile?.status === 'rejected' || userProfile?.status === 'suspended') {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center">
-        <span className="text-6xl">🚫</span>
-        <h1 className="text-xl font-semibold text-foreground mt-4">
-          {userProfile.status === 'rejected' ? 'Account not approved' : 'Account suspended'}
-        </h1>
-        {userProfile.rejectionNote && (
-          <p className="text-muted-foreground text-sm mt-2">Reason: {userProfile.rejectionNote}</p>
-        )}
-        <p className="text-muted-foreground text-sm mt-2">
-          Contact your community admin for assistance.
-        </p>
-      </div>
-    );
-  }
-
   async function handleReaccept() {
     if (!firebaseUser) return;
     await updateDoc(doc(db, 'users', firebaseUser.uid), {
@@ -110,12 +91,7 @@ export function ProtectedLayout() {
     });
   }
 
-  // Re-consent gate — only for verified/non-admin users who have a profile loaded
-  if (
-    userProfile &&
-    !isAdmin &&
-    userProfile.consentVersion !== CONSENT_VERSION
-  ) {
+  if (userProfile && userProfile.consentVersion !== CONSENT_VERSION) {
     return <ReconsentModal onAccept={handleReaccept} />;
   }
 

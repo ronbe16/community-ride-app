@@ -8,10 +8,10 @@ import { toast } from '@/hooks/use-toast';
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
 export function useNotifications() {
-  const { firebaseUser, isVerified } = useAuth();
+  const { firebaseUser, userProfile } = useAuth();
 
   useEffect(() => {
-    if (!firebaseUser || !isVerified) return;
+    if (!firebaseUser || !userProfile) return;
 
     Notification.requestPermission().then((permission) => {
       if (permission !== 'granted') return;
@@ -37,5 +37,5 @@ export function useNotifications() {
     });
 
     return unsub;
-  }, [firebaseUser, isVerified]);
+  }, [firebaseUser, userProfile]);
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { UserProfile } from '@/types';
 import { ninetyDaysFromNow } from '@/lib/retention';
@@ -9,32 +9,18 @@ interface AuthContextType {
   firebaseUser: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
-  isAdmin: boolean;
-  isVerified: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
   firebaseUser: null,
   userProfile: null,
   loading: true,
-  isAdmin: false,
-  isVerified: false,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [adminUids, setAdminUids] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Load community config (admin UIDs) once
-  useEffect(() => {
-    getDoc(doc(db, 'community', 'config')).then((snap) => {
-      if (snap.exists()) setAdminUids(snap.data().adminUids || []);
-    }).catch((err: unknown) => {
-      console.error('Failed to load community config:', err);
-    });
-  }, []);
 
   // Auth state + real-time user profile listener
   useEffect(() => {
@@ -85,11 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const isAdmin = firebaseUser ? adminUids.includes(firebaseUser.uid) : false;
-  const isVerified = userProfile?.status === 'verified';
-
   return (
-    <AuthContext.Provider value={{ firebaseUser, userProfile, loading, isAdmin, isVerified }}>
+    <AuthContext.Provider value={{ firebaseUser, userProfile, loading }}>
       {children}
     </AuthContext.Provider>
   );

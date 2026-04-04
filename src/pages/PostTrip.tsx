@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { MAX_TRIPS_PER_DAY, MAX_SEATS, WAITING_TIME_OPTIONS } from '@/constants/app';
-import { Navigate } from 'react-router-dom';
 
 function isPeakHour(hour: number): boolean {
   return (hour >= 6 && hour < 9) || (hour >= 17 && hour < 21);
@@ -32,8 +31,18 @@ export function PostTrip() {
   const [gasContribution, setGasContribution] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Drivers only
-  if (userProfile && userProfile.role !== 'driver') return <Navigate to="/" replace />;
+  // Require vehicle info to post a trip
+  if (userProfile && !userProfile.vehicle?.plateNumber) {
+    return (
+      <div className="space-y-4 pt-4 text-center px-4">
+        <span className="text-5xl block">🛺</span>
+        <h2 className="text-foreground font-semibold text-lg">Add your vehicle first</h2>
+        <p className="text-muted-foreground text-sm">
+          Go to your profile and fill in your vehicle details before posting a trip.
+        </p>
+      </div>
+    );
+  }
 
   const departureHour = departureTime ? parseInt(departureTime.split(':')[0], 10) : -1;
   const showPeakWarning = departureTime !== '' && !isPeakHour(departureHour);
