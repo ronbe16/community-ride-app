@@ -19,7 +19,7 @@ function tripTypeFromHour(hour: number): 'morning' | 'evening' {
 }
 
 export function PostTrip() {
-  const { firebaseUser, userProfile } = useAuth();
+  const { firebaseUser, userProfile, profileLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -30,6 +30,14 @@ export function PostTrip() {
   const [availableSeats, setAvailableSeats] = useState(2);
   const [gasContribution, setGasContribution] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  if (profileLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   // Require vehicle info to post a trip
   if (userProfile && !userProfile.vehicle?.plateNumber) {
