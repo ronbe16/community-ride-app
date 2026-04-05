@@ -40,6 +40,8 @@ export interface UserProfile {
   fcmToken?: string;
   lastActiveAt: Timestamp;
   joinedTripIds?: string[];
+  status?: 'pending' | 'approved' | 'rejected' | 'suspended';
+  rejectionNote?: string;
 }
 
 export interface Trip {

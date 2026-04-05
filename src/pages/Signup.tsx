@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { ninetyDaysFromNow } from '@/lib/retention';
 import { APP_NAME, CONSENT_VERSION } from '@/constants/app';
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+
+const googleProvider = new GoogleAuthProvider();
 
 export function Signup() {
   const navigate = useNavigate();
@@ -23,6 +25,32 @@ export function Signup() {
   const [consent, setConsent] = useState(false);
 
   const canSubmit = fullName && email && password.length >= 8 && mobile && consent;
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) {
+        navigate('/complete-profile', {
+          state: { uid: user.uid, fullName: user.displayName || '', email: user.email || '' },
+        });
+      } else {
+        navigate('/');
+      }
+    } catch (err: any) {
+      console.error('Google sign-in failed:', err);
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        setError('An account with this email already exists. Please sign in with your password.');
+      } else {
+        setError('Google sign-in failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +105,21 @@ export function Signup() {
             <CardTitle className="text-lg">Create your account</CardTitle>
           </CardHeader>
           <CardContent>
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 rounded-xl py-3 text-gray-700 font-medium shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-50 mb-4"
+            >
+              <img src="/icons/google.svg" alt="" className="w-5 h-5" />
+              Continue with Google
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-gray-400 text-xs">or continue with email</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label>Full Name</Label>
