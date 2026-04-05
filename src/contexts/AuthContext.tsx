@@ -9,12 +9,14 @@ interface AuthContextType {
   firebaseUser: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  profileLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
   firebaseUser: null,
   userProfile: null,
   loading: true,
+  profileLoading: true,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
