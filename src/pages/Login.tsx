@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from 'firebase/auth';
+import { Download } from 'lucide-react';
+import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { APP_NAME, COMMUNITY_NAME } from '@/constants/app';
