@@ -26,6 +26,32 @@ export function Signup() {
 
   const canSubmit = fullName && email && password.length >= 8 && mobile && consent;
 
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) {
+        navigate('/complete-profile', {
+          state: { uid: user.uid, fullName: user.displayName || '', email: user.email || '' },
+        });
+      } else {
+        navigate('/');
+      }
+    } catch (err: any) {
+      console.error('Google sign-in failed:', err);
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        setError('An account with this email already exists. Please sign in with your password.');
+      } else {
+        setError('Google sign-in failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
