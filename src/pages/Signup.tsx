@@ -221,6 +221,7 @@ export function Signup() {
           </Link>
         </p>
       </div>
+      <InstallGuideDialog open={showInstallGuide} onOpenChange={setShowInstallGuide} />
     </div>
   );
 }

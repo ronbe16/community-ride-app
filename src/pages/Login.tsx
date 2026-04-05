@@ -223,6 +223,7 @@ export function Login() {
           </CardContent>
         </Card>
       </div>
+      <InstallGuideDialog open={showInstallGuide} onOpenChange={setShowInstallGuide} />
     </div>
   );
 }
