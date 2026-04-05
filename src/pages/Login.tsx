@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { APP_NAME, COMMUNITY_NAME } from '@/constants/app';
@@ -17,6 +17,32 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
+  const [resetError, setResetError] = useState('');
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetMessage('');
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      setResetMessage('Check your email for a reset link.');
+    } catch (err: any) {
+      if (err.code === 'auth/user-not-found') {
+        setResetError('No account found with this email.');
+      } else if (err.code === 'auth/invalid-email') {
+        setResetError('Please enter a valid email address.');
+      } else {
+        setResetError('Failed to send reset email. Please try again.');
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +152,40 @@ export function Login() {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
+
+            <button
+              type="button"
+              onClick={() => { setShowReset(!showReset); setResetMessage(''); setResetError(''); setResetEmail(email); }}
+              className="w-full text-center text-sm text-primary font-medium hover:underline mt-3"
+            >
+              Forgot password?
+            </button>
+
+            {showReset && (
+              <form onSubmit={handleResetPassword} className="mt-3 space-y-3 p-4 rounded-lg border border-border bg-muted/50">
+                {resetMessage && (
+                  <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">{resetMessage}</div>
+                )}
+                {resetError && (
+                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">{resetError}</div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+                <Button type="submit" variant="outline" className="w-full" disabled={resetLoading}>
+                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
+                </Button>
+              </form>
+            )}
+
             <p className="text-center text-sm text-muted-foreground mt-4">
               Don't have an account?{' '}
               <Link to="/signup" className="text-primary font-medium hover:underline">
