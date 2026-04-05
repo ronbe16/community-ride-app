@@ -152,6 +152,40 @@ export function Login() {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
+
+            <button
+              type="button"
+              onClick={() => { setShowReset(!showReset); setResetMessage(''); setResetError(''); setResetEmail(email); }}
+              className="w-full text-center text-sm text-primary font-medium hover:underline mt-3"
+            >
+              Forgot password?
+            </button>
+
+            {showReset && (
+              <form onSubmit={handleResetPassword} className="mt-3 space-y-3 p-4 rounded-lg border border-border bg-muted/50">
+                {resetMessage && (
+                  <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">{resetMessage}</div>
+                )}
+                {resetError && (
+                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">{resetError}</div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+                <Button type="submit" variant="outline" className="w-full" disabled={resetLoading}>
+                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
+                </Button>
+              </form>
+            )}
+
             <p className="text-center text-sm text-muted-foreground mt-4">
               Don't have an account?{' '}
               <Link to="/signup" className="text-primary font-medium hover:underline">
