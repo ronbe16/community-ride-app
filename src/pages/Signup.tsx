@@ -79,6 +79,21 @@ export function Signup() {
             <CardTitle className="text-lg">Create your account</CardTitle>
           </CardHeader>
           <CardContent>
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 rounded-xl py-3 text-gray-700 font-medium shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-50 mb-4"
+            >
+              <img src="/icons/google.svg" alt="" className="w-5 h-5" />
+              Continue with Google
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-gray-400 text-xs">or continue with email</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label>Full Name</Label>
