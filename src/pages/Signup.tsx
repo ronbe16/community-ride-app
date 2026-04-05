@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
+import { InstallGuideDialog } from '@/components/shared/InstallGuideDialog';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
