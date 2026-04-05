@@ -92,17 +92,29 @@ export function Login() {
 
   const { isInstallable, install } = usePwaInstall();
 
+  const handleInstallClick = () => {
+    if (isInstallable) {
+      install();
+    } else {
+      // Guide users on how to install manually
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        alert('To install: tap the Share button in Safari, then "Add to Home Screen".');
+      } else {
+        alert('To install: open your browser menu (⋮) and tap "Install app" or "Add to Home Screen".');
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 relative">
-      {isInstallable && (
-        <button
-          onClick={install}
-          className="absolute top-4 right-4 flex items-center gap-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
-        >
-          <Download className="w-4 h-4" />
-          Install App
-        </button>
-      )}
+      <button
+        onClick={handleInstallClick}
+        className="absolute top-4 right-4 flex items-center gap-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
+      >
+        <Download className="w-4 h-4" />
+        Install App
+      </button>
       <div className="w-full max-w-app">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-2xl font-bold mx-auto mb-4">
