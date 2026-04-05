@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from 'firebase/auth';
 import { Download } from 'lucide-react';
+import { InstallGuideDialog } from '@/components/shared/InstallGuideDialog';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -91,18 +92,13 @@ export function Login() {
   };
 
   const { isInstallable, install } = usePwaInstall();
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   const handleInstallClick = () => {
     if (isInstallable) {
       install();
     } else {
-      // Guide users on how to install manually
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        alert('To install: tap the Share button in Safari, then "Add to Home Screen".');
-      } else {
-        alert('To install: open your browser menu (⋮) and tap "Install app" or "Add to Home Screen".');
-      }
+      setShowInstallGuide(true);
     }
   };
 
@@ -227,6 +223,7 @@ export function Login() {
           </CardContent>
         </Card>
       </div>
+      <InstallGuideDialog open={showInstallGuide} onOpenChange={setShowInstallGuide} />
     </div>
   );
 }

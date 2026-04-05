@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
+import { InstallGuideDialog } from '@/components/shared/InstallGuideDialog';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -86,17 +87,13 @@ export function Signup() {
   };
 
   const { isInstallable, install } = usePwaInstall();
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   const handleInstallClick = () => {
     if (isInstallable) {
       install();
     } else {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        alert('To install: tap the Share button in Safari, then "Add to Home Screen".');
-      } else {
-        alert('To install: open your browser menu (⋮) and tap "Install app" or "Add to Home Screen".');
-      }
+      setShowInstallGuide(true);
     }
   };
 
@@ -224,6 +221,7 @@ export function Signup() {
           </Link>
         </p>
       </div>
+      <InstallGuideDialog open={showInstallGuide} onOpenChange={setShowInstallGuide} />
     </div>
   );
 }
