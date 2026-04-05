@@ -19,7 +19,7 @@ function tripTypeFromHour(hour: number): 'morning' | 'evening' {
 }
 
 export function PostTrip() {
-  const { firebaseUser, userProfile } = useAuth();
+  const { firebaseUser, userProfile, profileLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
