@@ -14,6 +14,7 @@ import { TermsPage } from '@/pages/TermsPage';
 import { PrivacyPage } from '@/pages/PrivacyPage';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
+import { PwaInstallBanner } from '@/components/shared/PwaInstallBanner';
 
 export default function App() {
   return (
