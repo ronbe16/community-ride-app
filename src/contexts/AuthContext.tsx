@@ -23,15 +23,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
 
-  // Auth state + real-time user profile listener
   useEffect(() => {
-    // Holds the Firestore profile unsubscribe so we can clean it up when the
-    // auth user changes or the component unmounts.
     let unsubProfile: (() => void) | undefined;
 
     const unsubAuth = onAuthStateChanged(auth, (user) => {
-      // Always tear down the previous profile listener before starting a new one
       unsubProfile?.();
       unsubProfile = undefined;
 
@@ -40,15 +37,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!user) {
         setUserProfile(null);
         setLoading(false);
+        setProfileLoading(false);
         return;
       }
+
+      // Auth is resolved — unblock protected routes immediately
+      setLoading(false);
+      setProfileLoading(true);
 
       unsubProfile = onSnapshot(
         doc(db, 'users', user.uid),
         (snap) => {
           if (snap.exists()) {
             setUserProfile({ uid: snap.id, ...snap.data() } as UserProfile);
-            // Extend retention window on every login — keeps active users from being purged
             updateDoc(doc(db, 'users', user.uid), {
               deleteAt: ninetyDaysFromNow(),
               lastActiveAt: serverTimestamp(),
@@ -58,11 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             setUserProfile(null);
           }
-          setLoading(false);
+          setProfileLoading(false);
         },
         (err) => {
           console.error(`Failed to subscribe to user profile for ${user.uid}:`, err);
-          setLoading(false);
+          setProfileLoading(false);
         },
       );
     });
@@ -74,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ firebaseUser, userProfile, loading }}>
+    <AuthContext.Provider value={{ firebaseUser, userProfile, loading, profileLoading }}>
       {children}
     </AuthContext.Provider>
   );
