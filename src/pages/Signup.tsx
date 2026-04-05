@@ -61,21 +61,26 @@ export function Signup() {
     setLoading(true);
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        fullName: fullName.trim(),
-        email: email.trim(),
-        mobileNumber: '+63' + mobile.trim(),
-        consentVersion: CONSENT_VERSION,
-        consentAcceptedAt: serverTimestamp(),
-        deleteAt: ninetyDaysFromNow(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastActiveAt: serverTimestamp(),
-        tripCount: 0,
-        rating: 0,
-        ratingCount: 0,
-      });
+      try {
+        await setDoc(doc(db, 'users', user.uid), {
+          uid: user.uid,
+          fullName: fullName.trim(),
+          email: email.trim(),
+          mobileNumber: '+63' + mobile.trim(),
+          consentVersion: CONSENT_VERSION,
+          consentAcceptedAt: serverTimestamp(),
+          deleteAt: ninetyDaysFromNow(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastActiveAt: serverTimestamp(),
+          tripCount: 0,
+          rating: 0,
+          ratingCount: 0,
+        });
+      } catch (firestoreErr) {
+        console.error('Firestore profile write failed (auth account created):', firestoreErr);
+        setError('Account created but profile save failed. It will be retried on next login.');
+      }
       navigate('/');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Registration failed';
