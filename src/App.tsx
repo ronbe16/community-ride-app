@@ -22,6 +22,7 @@ export default function App() {
       <BrowserRouter>
         <Toaster />
         <Sonner />
+        <PwaInstallBanner />
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
