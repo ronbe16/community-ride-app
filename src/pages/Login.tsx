@@ -92,18 +92,13 @@ export function Login() {
   };
 
   const { isInstallable, install } = usePwaInstall();
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   const handleInstallClick = () => {
     if (isInstallable) {
       install();
     } else {
-      // Guide users on how to install manually
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        alert('To install: tap the Share button in Safari, then "Add to Home Screen".');
-      } else {
-        alert('To install: open your browser menu (⋮) and tap "Install app" or "Add to Home Screen".');
-      }
+      setShowInstallGuide(true);
     }
   };
 
