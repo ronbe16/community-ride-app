@@ -183,6 +183,13 @@ export function Login() {
                 <Button type="submit" variant="outline" className="w-full" disabled={resetLoading}>
                   {resetLoading ? 'Sending...' : 'Send Reset Link'}
                 </Button>
+                <button
+                  type="button"
+                  onClick={() => { setShowReset(false); setResetMessage(''); setResetError(''); }}
+                  className="w-full text-center text-sm text-muted-foreground hover:underline"
+                >
+                  Back to login
+                </button>
               </form>
             )}
 
