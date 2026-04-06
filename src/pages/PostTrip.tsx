@@ -40,7 +40,7 @@ export function PostTrip() {
   }
 
   // Require vehicle info to post a trip
-  if (userProfile && !userProfile.vehicle?.plateNumber) {
+  if (!userProfile?.vehicle?.plateNumber) {
     return (
       <div className="space-y-4 pt-4 text-center px-4">
         <span className="text-5xl block">🛺</span>

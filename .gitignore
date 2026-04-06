@@ -27,3 +27,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Testing
+test-results/
+playwright-report/
+playwright/.cache/
+screenshots/
+*-TESTING-PLAYBOOK.md
+TEST-RESULTS-*.md
+TEST-EXECUTION-SUMMARY.md
