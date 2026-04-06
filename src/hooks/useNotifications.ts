@@ -7,27 +7,41 @@ import { toast } from '@/hooks/use-toast';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
+function getAndSaveToken(uid: string) {
+  getToken(messaging, { vapidKey: VAPID_KEY })
+    .then((token) => {
+      if (token) {
+        updateDoc(doc(db, 'users', uid), { fcmToken: token }).catch((err: unknown) => {
+          console.error(`Failed to save FCM token for user ${uid}:`, err);
+        });
+      }
+    })
+    .catch((err: unknown) => {
+      console.error(`Failed to get FCM token for user ${uid}:`, err);
+    });
+}
+
 export function useNotifications() {
-  const { firebaseUser, userProfile } = useAuth();
+  const { firebaseUser } = useAuth();
 
   useEffect(() => {
-    if (!firebaseUser || !userProfile) return;
+    if (!firebaseUser) return;
 
-    Notification.requestPermission().then((permission) => {
-      if (permission !== 'granted') return;
+    if (Notification.permission === 'denied') return;
 
-      getToken(messaging, { vapidKey: VAPID_KEY }).then((token) => {
-        if (token) {
-          updateDoc(doc(db, 'users', firebaseUser.uid), { fcmToken: token }).catch((err: unknown) => {
-            console.error(`Failed to save FCM token for user ${firebaseUser.uid}:`, err);
-          });
-        }
-      }).catch((err: unknown) => {
-        console.error(`Failed to get FCM token for user ${firebaseUser.uid}:`, err);
-      });
-    }).catch((err: unknown) => {
-      console.error('Failed to request notification permission:', err);
-    });
+    if (Notification.permission === 'granted') {
+      getAndSaveToken(firebaseUser.uid);
+    } else {
+      Notification.requestPermission()
+        .then((permission) => {
+          if (permission === 'granted') {
+            getAndSaveToken(firebaseUser.uid);
+          }
+        })
+        .catch((err: unknown) => {
+          console.error('Failed to request notification permission:', err);
+        });
+    }
 
     const unsub = onMessage(messaging, (payload) => {
       toast({
@@ -37,5 +51,5 @@ export function useNotifications() {
     });
 
     return unsub;
-  }, [firebaseUser, userProfile]);
+  }, [firebaseUser?.uid]);
 }
