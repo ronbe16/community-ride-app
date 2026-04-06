@@ -19,7 +19,7 @@ function tripTypeFromHour(hour: number): 'morning' | 'evening' {
 }
 
 export function PostTrip() {
-  const { firebaseUser, userProfile, loading } = useAuth();
+  const { firebaseUser, userProfile, profileLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -31,7 +31,7 @@ export function PostTrip() {
   const [gasContribution, setGasContribution] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  if (loading) {
+  if (profileLoading || !userProfile) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

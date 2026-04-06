@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from 'firebase/auth';
+import { Download } from 'lucide-react';
+import { InstallGuideDialog } from '@/components/shared/InstallGuideDialog';
+import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { APP_NAME, COMMUNITY_NAME } from '@/constants/app';
@@ -17,6 +20,32 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
+  const [resetError, setResetError] = useState('');
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetMessage('');
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      setResetMessage('Check your email for a reset link.');
+    } catch (err: any) {
+      if (err.code === 'auth/user-not-found') {
+        setResetError('No account found with this email.');
+      } else if (err.code === 'auth/invalid-email') {
+        setResetError('Please enter a valid email address.');
+      } else {
+        setResetError('Failed to send reset email. Please try again.');
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,8 +91,26 @@ export function Login() {
     }
   };
 
+  const { isInstallable, install } = usePwaInstall();
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+
+  const handleInstallClick = () => {
+    if (isInstallable) {
+      install();
+    } else {
+      setShowInstallGuide(true);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 relative">
+      <button
+        onClick={handleInstallClick}
+        className="absolute top-4 right-4 flex items-center gap-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
+      >
+        <Download className="w-4 h-4" />
+        Install App
+      </button>
       <div className="w-full max-w-app">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-2xl font-bold mx-auto mb-4">
@@ -126,6 +173,47 @@ export function Login() {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
+
+            <button
+              type="button"
+              onClick={() => { setShowReset(!showReset); setResetMessage(''); setResetError(''); setResetEmail(email); }}
+              className="w-full text-center text-sm text-primary font-medium hover:underline mt-3"
+            >
+              Forgot password?
+            </button>
+
+            {showReset && (
+              <form onSubmit={handleResetPassword} className="mt-3 space-y-3 p-4 rounded-lg border border-border bg-muted/50">
+                {resetMessage && (
+                  <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">{resetMessage}</div>
+                )}
+                {resetError && (
+                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">{resetError}</div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+                <Button type="submit" variant="outline" className="w-full" disabled={resetLoading}>
+                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => { setShowReset(false); setResetMessage(''); setResetError(''); }}
+                  className="w-full text-center text-sm text-muted-foreground hover:underline"
+                >
+                  Back to login
+                </button>
+              </form>
+            )}
+
             <p className="text-center text-sm text-muted-foreground mt-4">
               Don't have an account?{' '}
               <Link to="/signup" className="text-primary font-medium hover:underline">
@@ -135,6 +223,7 @@ export function Login() {
           </CardContent>
         </Card>
       </div>
+      <InstallGuideDialog open={showInstallGuide} onOpenChange={setShowInstallGuide} />
     </div>
   );
 }
