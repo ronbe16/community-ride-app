@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<body>
+<p>Generating icons... check your Downloads folder.</p>
+<canvas id="c192" width="192" height="192"></canvas>
+<canvas id="c512" width="512" height="512"></canvas>
+<script>
+function drawIcon(canvas) {
+  const ctx = canvas.getContext('2d');
+  const s = canvas.width;
+  const scale = s / 192;
+
+  // Green background
+  ctx.fillStyle = '#16a34a';
+  roundRect(ctx, 0, 0, s, s, 32 * scale);
+  ctx.fill();
+
+  // Car body
+  ctx.fillStyle = '#ffffff';
+  roundRect(ctx, 30 * scale, 100 * scale, 132 * scale, 52 * scale, 8 * scale);
+  ctx.fill();
+
+  // Car cabin
+  ctx.beginPath();
+  ctx.moveTo(55 * scale, 100 * scale);
+  ctx.lineTo(72 * scale, 68 * scale);
+  ctx.lineTo(120 * scale, 68 * scale);
+  ctx.lineTo(137 * scale, 100 * scale);
+  ctx.closePath();
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+
+  // Orange heart
+  ctx.fillStyle = '#f97316';
+  drawHeart(ctx, 96 * scale, 118 * scale, 14 * scale);
+
+  // Wheels
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.arc(65 * scale, 152 * scale, 14 * scale, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(127 * scale, 152 * scale, 14 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Wheel hubs
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(65 * scale, 152 * scale, 6 * scale, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(127 * scale, 152 * scale, 6 * scale, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawHeart(ctx, x, y, size) {
+  ctx.beginPath();
+  ctx.moveTo(x, y + size * 0.4);
+  ctx.bezierCurveTo(x, y - size * 0.6, x - size * 1.2, y - size * 0.6, x - size * 1.2, y);
+  ctx.bezierCurveTo(x - size * 1.2, y + size * 0.6, x, y + size * 1.2, x, y + size * 1.5);
+  ctx.bezierCurveTo(x, y + size * 1.2, x + size * 1.2, y + size * 0.6, x + size * 1.2, y);
+  ctx.bezierCurveTo(x + size * 1.2, y - size * 0.6, x, y - size * 0.6, x, y + size * 0.4);
+  ctx.closePath();
+  ctx.fill();
+}
+
+drawIcon(document.getElementById('c192'));
+drawIcon(document.getElementById('c512'));
+
+// Download both
+['c192', 'c512'].forEach(id => {
+  const canvas = document.getElementById(id);
+  const a = document.createElement('a');
+  a.download = id === 'c192' ? 'icon-192.png' : 'icon-512.png';
+  a.href = canvas.toDataURL('image/png');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+});
+</script>
+</body>
+</html>

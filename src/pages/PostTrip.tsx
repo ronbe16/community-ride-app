@@ -9,9 +9,17 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { MAX_TRIPS_PER_DAY, MAX_SEATS, WAITING_TIME_OPTIONS } from '@/constants/app';
+import { WINDOWS } from '@/lib/carpool-windows';
 
-function isPeakHour(hour: number): boolean {
-  return (hour >= 6 && hour < 9) || (hour >= 17 && hour < 21);
+function isDepartureOffPeak(departureTime: Date): boolean {
+  const phtOffset = 8 * 60;
+  const utcMinutes = departureTime.getUTCHours() * 60 + departureTime.getUTCMinutes();
+  const phtMinutes = (utcMinutes + phtOffset) % (24 * 60);
+  const phtHour = phtMinutes / 60;
+
+  const inMorning = phtHour >= WINDOWS.morning.start && phtHour < WINDOWS.morning.end;
+  const inEvening = phtHour >= WINDOWS.evening.start && phtHour < WINDOWS.evening.end;
+  return !inMorning && !inEvening;
 }
 
 function tripTypeFromHour(hour: number): 'morning' | 'evening' {
@@ -52,8 +60,14 @@ export function PostTrip() {
     );
   }
 
-  const departureHour = departureTime ? parseInt(departureTime.split(':')[0], 10) : -1;
-  const showPeakWarning = departureTime !== '' && !isPeakHour(departureHour);
+  const showOffPeakWarning =
+    departureTime !== '' &&
+    isDepartureOffPeak((() => {
+      const [h, m] = departureTime.split(':').map(Number);
+      const d = new Date();
+      d.setHours(h, m, 0, 0);
+      return d;
+    })());
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -176,9 +190,10 @@ export function PostTrip() {
             value={departureTime}
             onChange={(e) => setDepartureTime(e.target.value)}
           />
-          {showPeakWarning && (
-            <div className="bg-warning/10 border border-warning/30 rounded-lg p-2 text-xs text-foreground">
-              Note: LTFRB carpooling is allowed during peak hours only (6–9 AM, 5–9 PM).
+          {showOffPeakWarning && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+              <span className="font-medium">Note:</span> LTFRB carpooling windows are 5:00–10:00 AM and 4:00–10:00 PM.
+              You can still post this trip, but it may be outside allowed hours.
             </div>
           )}
         </div>

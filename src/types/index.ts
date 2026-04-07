@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type TripStatus = 'open' | 'full' | 'departed' | 'cancelled';
+export type TripStatus = 'open' | 'full' | 'departed' | 'completed' | 'cancelled';
 export type TripType = 'morning' | 'evening';
 export type PhotoType = 'face' | 'id' | 'plate';
 

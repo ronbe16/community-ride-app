@@ -2,8 +2,32 @@ import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { Download, X } from 'lucide-react';
 
 export function PwaInstallBanner() {
-  const { isInstallable, install, dismiss } = usePwaInstall();
+  const { isInstallable, isInstalled, isIOS, install, dismiss } = usePwaInstall();
 
+  // Already installed as PWA — show nothing
+  if (isInstalled) return null;
+
+  // iOS — Safari doesn't support beforeinstallprompt, show manual instructions
+  if (isIOS && !isInstalled) {
+    return (
+      <div className="fixed bottom-20 left-4 right-4 z-50 bg-emerald-50 border border-emerald-200 rounded-xl shadow-lg p-4 animate-in slide-in-from-bottom-4">
+        <div className="flex items-start gap-3">
+          <Download className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-emerald-900">Install CommunityRide</p>
+            <p className="text-xs text-emerald-700 mt-0.5">
+              Tap the <strong>Share</strong> button in Safari, then tap <strong>"Add to Home Screen"</strong>
+            </p>
+          </div>
+          <button onClick={dismiss} className="text-emerald-500 hover:text-emerald-700 flex-shrink-0">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Android/Chrome — native install prompt available
   if (!isInstallable) return null;
 
   return (

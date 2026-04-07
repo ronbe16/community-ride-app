@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadLtfrbQr } from '@/lib/cloudinary';
@@ -27,6 +27,18 @@ export function Profile() {
   const [vehicleColor, setVehicleColor] = useState(userProfile?.vehicle?.color ?? '');
   const [ltfrbPermitNumber, setLtfrbPermitNumber] = useState(userProfile?.vehicle?.ltfrbPermitNumber ?? '');
   const [uploadingQr, setUploadingQr] = useState(false);
+
+  // Sync vehicle fields when userProfile loads from Firestore
+  // This handles the race condition where userProfile is null at mount time
+  useEffect(() => {
+    if (!userProfile?.vehicle) return;
+    setVehicleMake(userProfile.vehicle.make ?? '');
+    setVehicleModel(userProfile.vehicle.model ?? '');
+    setVehicleYear(userProfile.vehicle.year?.toString() ?? '');
+    setPlateNumber(userProfile.vehicle.plateNumber ?? '');
+    setVehicleColor(userProfile.vehicle.color ?? '');
+    setLtfrbPermitNumber(userProfile.vehicle.ltfrbPermitNumber ?? '');
+  }, [userProfile]);
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();

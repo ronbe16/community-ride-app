@@ -8,6 +8,8 @@ interface BeforeInstallPromptEvent extends Event {
 export function usePwaInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
   const [dismissed, setDismissed] = useState(() => {
     try {
       return sessionStorage.getItem('pwa-install-dismissed') === '1';
@@ -17,6 +19,16 @@ export function usePwaInstall() {
   });
 
   useEffect(() => {
+    // Detect iOS — Safari doesn't support beforeinstallprompt
+    const ios = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    setIsIOS(ios);
+
+    // Detect if already installed as PWA
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+      return;
+    }
+
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -32,6 +44,7 @@ export function usePwaInstall() {
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
       setIsInstallable(false);
+      setIsInstalled(true);
     }
     setDeferredPrompt(null);
   };
@@ -43,5 +56,11 @@ export function usePwaInstall() {
     } catch {}
   };
 
-  return { isInstallable: isInstallable && !dismissed, install, dismiss };
+  return {
+    isInstallable: isInstallable && !dismissed,
+    isInstalled,
+    isIOS,
+    install,
+    dismiss,
+  };
 }
