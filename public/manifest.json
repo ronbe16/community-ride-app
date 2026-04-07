@@ -1,13 +1,24 @@
 {
-  "name": "Community Ride",
+  "name": "CommunityRide",
   "short_name": "CommunityRide",
-  "description": "Free carpooling coordination for your barangay",
+  "description": "Carpooling para sa komunidad",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F9FAFB",
-  "theme_color": "#10B981",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "orientation": "portrait",
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }

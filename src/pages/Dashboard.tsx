@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { COMMUNITY_NAME } from '@/constants/app';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -7,15 +6,11 @@ import { TripCard } from '@/components/dashboard/TripCard';
 import { useTrips } from '@/hooks/useTrips';
 import { useMyTrips } from '@/hooks/useMyTrips';
 import { useMyJoinedTrips } from '@/hooks/useMyJoinedTrips';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useToast } from '@/hooks/use-toast';
-import { ninetyDaysFromNow } from '@/lib/retention';
+import { getNextWindowLabel } from '@/lib/carpool-windows';
 
 export function Dashboard() {
-  const { userProfile, firebaseUser } = useAuth();
+  const { userProfile } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const firstName = userProfile?.fullName?.split(' ')[0] || 'Neighbor';
 
   const now = new Date();
@@ -23,40 +18,12 @@ export function Dashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const dateStr = now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const { trips, loading: tripsLoading } = useTrips();
+  const { trips, loading: tripsLoading, withinWindow } = useTrips();
   const { trips: myTrips } = useMyTrips();
   const { trips: joinedTrips } = useMyJoinedTrips();
 
   const activeDriverTrip = myTrips.find((t) => t.status === 'open');
   const todayJoinedTrip = joinedTrips[0] ?? null;
-
-  // Rating prompts — departed trips the current user was involved in but hasn't rated yet
-  const [ratedTripIds, setRatedTripIds] = useState<Set<string>>(new Set());
-  const [selectedRatings, setSelectedRatings] = useState<Record<string, number>>({});
-
-  const departedJoinedTrips = joinedTrips.filter(
-    (t) => t.status === 'departed' && !ratedTripIds.has(t.id),
-  );
-
-  async function handleRate(tripId: string, toUid: string, stars: number) {
-    if (!firebaseUser) return;
-    setSelectedRatings((prev) => ({ ...prev, [tripId]: stars }));
-    try {
-      await addDoc(collection(db, 'ratings'), {
-        tripId,
-        fromUid: firebaseUser.uid,
-        toUid,
-        stars,
-        createdAt: serverTimestamp(),
-        deleteAt: ninetyDaysFromNow(),
-      });
-      setRatedTripIds((prev) => new Set([...prev, tripId]));
-      toast({ title: 'Rating submitted!' });
-    } catch (err: unknown) {
-      console.error(`Failed to submit rating for trip ${tripId}:`, err);
-      toast({ title: 'Failed to submit rating', variant: 'destructive' });
-    }
-  }
 
   return (
     <div className="space-y-4 pt-4">
@@ -82,7 +49,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Section 3: Quick Actions — same for everyone */}
+      {/* Section 3: Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
         <Button className="h-14 rounded-xl text-sm font-medium" onClick={() => navigate('/post-trip')}>
           Post a Trip ➕
@@ -92,38 +59,22 @@ export function Dashboard() {
         </Button>
       </div>
 
-      {/* Section 4: Rating prompts for departed trips */}
-      {departedJoinedTrips.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-foreground font-semibold">Rate your recent trips</h2>
-          {departedJoinedTrips.map((trip) => (
-            <div key={trip.id} className="bg-white border border-gray-200 rounded-xl p-4">
-              <div className="font-medium text-gray-900 mb-1">
-                How was your trip to {trip.destination}?
-              </div>
-              <div className="text-gray-500 text-sm mb-3">
-                Rate {trip.driverName}
-              </div>
-              <div className="flex gap-2 justify-center">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => handleRate(trip.id, trip.driverUid, star)}
-                    className="text-3xl hover:scale-110 transition-transform"
-                  >
-                    {star <= (selectedRatings[trip.id] ?? 0) ? '⭐' : '☆'}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Section 5: Available Trips */}
+      {/* Section 4: Available Trips */}
       <div>
         <h2 className="text-foreground font-semibold mb-3">Available trips today</h2>
-        {tripsLoading ? (
+
+        {!withinWindow ? (
+          <div className="text-center py-10 text-gray-400">
+            <div className="text-4xl mb-3">🌙</div>
+            <p className="font-medium text-gray-600">Carpool window is closed</p>
+            <p className="text-sm mt-1">
+              Next window opens at <span className="font-medium text-emerald-600">{getNextWindowLabel()}</span>
+            </p>
+            <p className="text-xs mt-3 text-gray-400">
+              Morning: 5:00 AM – 10:00 AM · Evening: 4:00 PM – 10:00 PM
+            </p>
+          </div>
+        ) : tripsLoading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
           </div>
@@ -160,7 +111,7 @@ export function Dashboard() {
         )}
       </div>
 
-      {/* Section 6: My upcoming ride */}
+      {/* Section 5: My upcoming ride */}
       {todayJoinedTrip && todayJoinedTrip.status === 'open' && (
         <div>
           <h2 className="text-foreground font-semibold mb-3">My ride today</h2>

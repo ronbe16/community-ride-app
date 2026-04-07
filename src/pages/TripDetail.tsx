@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  doc, onSnapshot, getDoc, updateDoc, addDoc,
+  doc, onSnapshot, getDoc, addDoc,
   collection, serverTimestamp, arrayUnion, arrayRemove, Timestamp,
+  runTransaction, increment, writeBatch, getDocs, query, where, updateDoc,
 } from 'firebase/firestore';
 import { uploadPassengerScan } from '@/lib/cloudinary';
 import { uploadExchangePhoto } from '@/lib/safety-exchange';
@@ -41,6 +42,10 @@ export function TripDetail() {
   const [passengers, setPassengers] = useState<PassengerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState<PhotoType | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoType = useRef<PhotoType | null>(null);
@@ -80,6 +85,19 @@ export function TripDetail() {
     return unsubPassengers;
   }, [tripId, trip, firebaseUser]);
 
+  // Auto-mark trip as departed when departure time passes
+  useEffect(() => {
+    if (!trip || !tripId) return;
+    if (trip.status !== 'open' && trip.status !== 'full') return;
+
+    const departureMs = trip.departureTime.toDate().getTime();
+    if (Date.now() > departureMs) {
+      updateDoc(doc(db, 'trips', tripId), { status: 'departed' }).catch((err: unknown) => {
+        console.error(`Failed to auto-mark trip ${tripId} as departed:`, err);
+      });
+    }
+  }, [trip, tripId]);
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -98,7 +116,7 @@ export function TripDetail() {
     ? confirmedPassengers.some((p) => p.uid === firebaseUser?.uid)
     : false;
   const seatsLeft = trip.availableSeats - trip.filledSeats;
-  const isFull = seatsLeft <= 0;
+  const isFull = seatsLeft <= 0 || trip.status === 'full';
   const showExchange = trip.status === 'open' && isWithinTwoHours(trip.departureTime);
   const exchangePhotoCount = trip.exchangePhotos ? Object.keys(trip.exchangePhotos).length : 0;
 
@@ -106,25 +124,50 @@ export function TripDetail() {
     if (!firebaseUser || !userProfile || !tripId) return;
     setActionLoading(true);
     try {
-      await addDoc(collection(db, 'trips', tripId, 'passengers'), {
-        uid: firebaseUser.uid,
-        fullName: userProfile.fullName,
-        mobileNumber: userProfile.mobileNumber,
-        joinedAt: serverTimestamp(),
-        status: 'confirmed',
+      const tripRef = doc(db, 'trips', tripId);
+      const passengerRef = doc(db, 'trips', tripId, 'passengers', firebaseUser.uid);
+
+      await runTransaction(db, async (transaction) => {
+        const tripSnap = await transaction.get(tripRef);
+
+        if (!tripSnap.exists()) {
+          throw new Error('Trip no longer exists.');
+        }
+
+        const tripData = tripSnap.data();
+
+        if (tripData.filledSeats >= tripData.availableSeats) {
+          throw new Error('Sorry, this trip is already full.');
+        }
+
+        if (tripData.driverUid === firebaseUser.uid) {
+          throw new Error('You cannot join your own trip.');
+        }
+
+        transaction.update(tripRef, {
+          filledSeats: increment(1),
+          ...(tripData.filledSeats + 1 >= tripData.availableSeats ? { status: 'full' } : {}),
+          updatedAt: serverTimestamp(),
+        });
+
+        transaction.set(passengerRef, {
+          uid: firebaseUser.uid,
+          fullName: userProfile.fullName,
+          mobileNumber: userProfile.mobileNumber,
+          joinedAt: serverTimestamp(),
+          status: 'confirmed',
+          deleteAt: tripData.deleteAt ?? ninetyDaysFromNow(),
+        });
       });
-      await updateDoc(doc(db, 'trips', tripId), {
-        filledSeats: trip.filledSeats + 1,
-        status: trip.filledSeats + 1 >= trip.availableSeats ? 'full' : 'open',
-        updatedAt: serverTimestamp(),
-      });
+
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
         joinedTripIds: arrayUnion(tripId),
       });
+
       // Notify driver
       const driverDoc = await getDoc(doc(db, 'users', trip.driverUid));
       if (driverDoc.exists() && driverDoc.data().fcmToken) {
-        await addDoc(collection(db, 'pending_notifications'), {
+        addDoc(collection(db, 'pending_notifications'), {
           token: driverDoc.data().fcmToken,
           title: 'New passenger',
           body: `${userProfile.fullName} joined your trip to ${trip.destination}`,
@@ -133,10 +176,12 @@ export function TripDetail() {
           console.error('Failed to queue join notification:', err);
         });
       }
+
       toast({ title: "You're in!", description: `You've joined the trip to ${trip.destination}.` });
     } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Please try again.';
       console.error(`Failed to join trip ${tripId} for user ${firebaseUser.uid}:`, err);
-      toast({ title: 'Failed to join', description: 'Please try again.', variant: 'destructive' });
+      toast({ title: 'Could not join', description: message, variant: 'destructive' });
     } finally {
       setActionLoading(false);
     }
@@ -146,22 +191,33 @@ export function TripDetail() {
     if (!firebaseUser || !tripId) return;
     setActionLoading(true);
     try {
-      await updateDoc(doc(db, 'trips', tripId, 'passengers', firebaseUser.uid), {
-        status: 'cancelled',
-        cancelledAt: serverTimestamp(),
+      const tripRef = doc(db, 'trips', tripId);
+      const passengerRef = doc(db, 'trips', tripId, 'passengers', firebaseUser.uid);
+
+      await runTransaction(db, async (transaction) => {
+        const tripSnap = await transaction.get(tripRef);
+        if (!tripSnap.exists()) throw new Error('Trip not found.');
+
+        transaction.update(tripRef, {
+          filledSeats: increment(-1),
+          ...(tripSnap.data().status === 'full' ? { status: 'open' } : {}),
+          updatedAt: serverTimestamp(),
+        });
+
+        transaction.update(passengerRef, {
+          status: 'cancelled',
+          cancelledAt: serverTimestamp(),
+        });
       });
-      await updateDoc(doc(db, 'trips', tripId), {
-        filledSeats: Math.max(0, trip.filledSeats - 1),
-        status: 'open',
-        updatedAt: serverTimestamp(),
-      });
+
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
         joinedTripIds: arrayRemove(tripId),
       });
+
       // Notify driver
       const driverDoc = await getDoc(doc(db, 'users', trip.driverUid));
       if (driverDoc.exists() && driverDoc.data().fcmToken) {
-        await addDoc(collection(db, 'pending_notifications'), {
+        addDoc(collection(db, 'pending_notifications'), {
           token: driverDoc.data().fcmToken,
           title: 'Passenger cancelled',
           body: `${userProfile?.fullName} cancelled their seat`,
@@ -170,6 +226,7 @@ export function TripDetail() {
           console.error('Failed to queue cancel notification:', err);
         });
       }
+
       toast({ title: 'Seat cancelled', description: 'Your seat has been cancelled.' });
     } catch (err: unknown) {
       console.error(`Failed to cancel seat for trip ${tripId}, user ${firebaseUser?.uid}:`, err);
@@ -179,15 +236,60 @@ export function TripDetail() {
     }
   }
 
+  async function handleCompleteTrip() {
+    if (!firebaseUser || !trip || !tripId) return;
+    setCompleting(true);
+
+    try {
+      const passengersSnap = await getDocs(
+        query(
+          collection(db, 'trips', tripId, 'passengers'),
+          where('status', '==', 'confirmed'),
+        ),
+      );
+
+      const batch = writeBatch(db);
+
+      batch.update(doc(db, 'trips', tripId), {
+        status: 'completed',
+        completedAt: serverTimestamp(),
+      });
+
+      batch.update(doc(db, 'users', firebaseUser.uid), {
+        tripCount: increment(1),
+      });
+
+      passengersSnap.docs.forEach((passengerDoc) => {
+        const passengerData = passengerDoc.data();
+        if (passengerData.uid) {
+          batch.update(doc(db, 'users', passengerData.uid), {
+            tripCount: increment(1),
+          });
+        }
+      });
+
+      await batch.commit();
+      setShowCompletionModal(true);
+    } catch (err: unknown) {
+      console.error(`Failed to complete trip ${tripId}:`, err);
+      toast({
+        title: 'Could not complete trip',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCompleting(false);
+    }
+  }
+
   async function handleShareDriverInfo() {
     if (!firebaseUser || !tripId) return;
     try {
-      // Fetch driver trust signals
       const driverDoc = await getDoc(doc(db, 'users', trip.driverUid));
       const driverData = driverDoc.exists() ? driverDoc.data() : null;
 
       const expiresAt = Timestamp.fromMillis(
-        trip.departureTime.toDate().getTime() + 24 * 60 * 60 * 1000,
+        trip.departureTime.toDate().getTime() + SAFETY_LINK_EXPIRY_HOURS * 60 * 60 * 1000,
       );
       const linkDoc = await addDoc(collection(db, 'safety_links'), {
         type: 'driver_safety_card',
@@ -205,28 +307,28 @@ export function TripDetail() {
           origin: trip.origin,
           destination: trip.destination,
           departureTime: trip.departureTime,
+          waitingMinutes: trip.waitingMinutes,
         },
         exchangePhotos: trip.exchangePhotos ?? {},
         expiresAt,
         deleteAt: ninetyDaysFromNow(),
         createdAt: serverTimestamp(),
       });
+
       const url = `${window.location.origin}/safety/${linkDoc.id}`;
-      const shareText = `I'm riding with ${trip.driverName} to ${trip.destination}. Here's their info: ${url}`;
-      if (navigator.share) {
-        await navigator.share({ title: 'Driver Safety Card', text: shareText, url });
+      const shareText = `I'm riding with ${trip.driverName} (${trip.vehicle.color} ${trip.vehicle.make} ${trip.vehicle.model}) to ${trip.destination}. Departure: ${formatTime(trip.departureTime)}.`;
+      const shareData = { title: 'My ride details – Community Ride', text: shareText, url };
+
+      if (navigator.share && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(shareText);
-        toast({ title: 'Link copied!', description: 'Share it with a trusted contact.' });
+        setShareUrl(url);
+        setShowShareOptions(true);
       }
     } catch (err: unknown) {
       console.error(`Failed to generate safety link for trip ${tripId}:`, err);
       toast({ title: 'Failed to generate link', description: 'Please try again.', variant: 'destructive' });
     }
-  }
-
-  async function handleShareSafetyLink() {
-    await handleShareDriverInfo();
   }
 
   async function handleGenerateManifest() {
@@ -279,7 +381,7 @@ export function TripDetail() {
       for (const p of confirmedPassengers) {
         const pDoc = await getDoc(doc(db, 'users', p.uid));
         if (pDoc.exists() && pDoc.data().fcmToken) {
-          await addDoc(collection(db, 'pending_notifications'), {
+          addDoc(collection(db, 'pending_notifications'), {
             token: pDoc.data().fcmToken,
             title: 'Trip cancelled',
             body: `Your trip to ${trip.destination} has been cancelled by the driver.`,
@@ -334,7 +436,6 @@ export function TripDetail() {
     const file = e.target.files?.[0];
     const type = pendingPhotoType.current;
     if (!file || !type || !tripId || !firebaseUser) return;
-    // Reset so the same type can be re-captured
     e.target.value = '';
     setUploadingPhoto(type);
     try {
@@ -354,14 +455,13 @@ export function TripDetail() {
       <div className="bg-card border border-border rounded-xl p-4 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-foreground font-semibold">{trip.driverName}</span>
-          {trip.driverRating && trip.driverRating > 0 ? (
-            <span className="text-amber-500 text-sm font-medium">⭐ {trip.driverRating.toFixed(1)}</span>
+          {trip.driverTripCount && trip.driverTripCount > 0 ? (
+            <span className="text-muted-foreground text-sm">
+              🛺 {trip.driverTripCount} trip{trip.driverTripCount !== 1 ? 's' : ''} completed
+            </span>
           ) : (
             <span className="text-muted-foreground text-sm">New member</span>
           )}
-          {trip.driverTripCount && trip.driverTripCount > 0 ? (
-            <span className="text-muted-foreground text-sm">· {trip.driverTripCount} trips</span>
-          ) : null}
         </div>
         <p className="text-muted-foreground text-sm">
           {trip.vehicle.color} {trip.vehicle.make} {trip.vehicle.model}
@@ -391,7 +491,7 @@ export function TripDetail() {
       </div>
 
       {/* Passenger Actions (non-driver view) */}
-      {!isDriver && trip.status === 'open' && (
+      {!isDriver && (trip.status === 'open' || trip.status === 'full') && (
         <div className="space-y-2">
           {isJoined ? (
             <>
@@ -429,6 +529,23 @@ export function TripDetail() {
         </div>
       )}
 
+      {/* Driver: Mark as completed (only when departed) */}
+      {isDriver && trip.status === 'departed' && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+          <p className="font-medium text-emerald-900">Did the trip go smoothly?</p>
+          <p className="text-sm text-emerald-700">
+            Marking as completed will log this trip for you and your passengers.
+          </p>
+          <Button
+            className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={handleCompleteTrip}
+            disabled={completing}
+          >
+            {completing ? 'Completing…' : '✓ Mark trip as completed'}
+          </Button>
+        </div>
+      )}
+
       {/* Optional safety photo exchange — shown when trip departs within 2 hours */}
       {showExchange && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -456,7 +573,7 @@ export function TripDetail() {
 
           {exchangePhotoCount > 0 && (
             <button
-              onClick={handleShareSafetyLink}
+              onClick={handleShareDriverInfo}
               className="w-full mt-3 bg-emerald-500 text-white rounded-xl py-2 text-sm font-medium"
             >
               Share safety link to family 🤝
@@ -506,17 +623,101 @@ export function TripDetail() {
             </div>
           )}
 
-          <Button className="w-full rounded-xl" onClick={handleGenerateManifest} disabled={actionLoading}>
-            Generate Manifest
-          </Button>
-          <Button
-            className="w-full rounded-xl"
-            variant="destructive"
-            onClick={handleCancelTrip}
-            disabled={actionLoading}
-          >
-            Cancel trip
-          </Button>
+          {(trip.status === 'open' || trip.status === 'full') && (
+            <>
+              <Button className="w-full rounded-xl" onClick={handleGenerateManifest} disabled={actionLoading}>
+                Generate Manifest
+              </Button>
+              <Button
+                className="w-full rounded-xl"
+                variant="destructive"
+                onClick={handleCancelTrip}
+                disabled={actionLoading}
+              >
+                Cancel trip
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Trip Completion Modal */}
+      {showCompletionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-end z-50">
+          <div className="bg-white w-full rounded-t-2xl p-6 space-y-4">
+            <div className="text-center">
+              <div className="text-4xl mb-2">🎉</div>
+              <h3 className="text-lg font-semibold text-gray-900">Trip completed!</h3>
+              <p className="text-gray-500 text-sm mt-1">
+                This trip has been logged for you and your passengers.
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p className="text-sm text-amber-800 font-medium">Safety reminder</p>
+              <p className="text-sm text-amber-700 mt-1">
+                Remind your passengers to let their loved ones know they've arrived safely.
+                <span className="italic"> "Pakisabi sa pamilya mo na nakarating ka na." 🙏</span>
+              </p>
+            </div>
+
+            <Button
+              className="w-full rounded-xl"
+              onClick={() => {
+                setShowCompletionModal(false);
+                navigate('/');
+              }}
+            >
+              Back to trips
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Share Options Fallback Sheet */}
+      {showShareOptions && shareUrl && (
+        <div className="fixed inset-0 bg-black/50 flex items-end z-50">
+          <div className="bg-white w-full rounded-t-2xl p-6 space-y-3">
+            <h3 className="font-semibold text-gray-900 text-center">Share driver info</h3>
+
+            <a
+              href={`https://www.facebook.com/dialog/send?link=${encodeURIComponent(shareUrl)}&app_id=YOUR_FB_APP_ID&redirect_uri=${encodeURIComponent(window.location.origin)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 w-full p-4 border border-gray-200 rounded-xl hover:bg-gray-50"
+            >
+              <span className="text-2xl">💬</span>
+              <span className="font-medium">Facebook Messenger</span>
+            </a>
+
+            <a
+              href={`viber://forward?text=${encodeURIComponent(shareUrl)}`}
+              className="flex items-center gap-3 w-full p-4 border border-gray-200 rounded-xl hover:bg-gray-50"
+            >
+              <span className="text-2xl">📱</span>
+              <span className="font-medium">Viber</span>
+            </a>
+
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(shareUrl).catch((err: unknown) => {
+                  console.error('Failed to copy to clipboard:', err);
+                });
+                toast({ title: 'Link copied!' });
+              }}
+              className="flex items-center gap-3 w-full p-4 border border-gray-200 rounded-xl hover:bg-gray-50"
+            >
+              <span className="text-2xl">🔗</span>
+              <span className="font-medium">Copy link</span>
+            </button>
+
+            <button
+              onClick={() => setShowShareOptions(false)}
+              className="w-full text-gray-500 py-2 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>
