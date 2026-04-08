@@ -14,17 +14,24 @@ interface TripCardProps {
     waitingMinutes: number;
     seatsLeft: number;
     gasContribution?: number;
+    status?: string;
   };
+  alreadyJoined?: boolean;
 }
 
-export function TripCard({ trip }: TripCardProps) {
+export function TripCard({ trip, alreadyJoined = false }: TripCardProps) {
   const navigate = useNavigate();
-  const isFull = trip.seatsLeft <= 0;
+  const isFull = trip.seatsLeft <= 0 || trip.status === 'full';
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-foreground font-medium text-sm">{trip.driverName}</span>
+        {trip.status === 'full' && (
+          <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium shrink-0">
+            Full — Ongoing
+          </span>
+        )}
         {trip.driverTripCount && trip.driverTripCount > 0 ? (
           <span className="text-muted-foreground text-xs">
             🛺 {trip.driverTripCount} trip{trip.driverTripCount !== 1 ? 's' : ''} completed
@@ -49,12 +56,12 @@ export function TripCard({ trip }: TripCardProps) {
         {trip.gasContribution ? `Gas: ₱${trip.gasContribution}` : 'Discuss with driver'}
       </p>
       <Button
-        className={`w-full rounded-lg mt-1 ${isFull ? 'bg-gray-100 text-gray-400 hover:bg-gray-100 cursor-not-allowed' : ''}`}
+        className={`w-full rounded-lg mt-1 ${alreadyJoined || isFull ? 'bg-gray-100 text-gray-400 hover:bg-gray-100 cursor-not-allowed' : ''}`}
         size="sm"
-        disabled={isFull}
+        disabled={alreadyJoined || isFull}
         onClick={() => navigate(`/trip/${trip.id}`)}
       >
-        {isFull ? 'Trip Full' : 'Join Trip'}
+        {alreadyJoined ? 'Already joined' : isFull ? 'Trip Full' : 'Join Trip'}
       </Button>
     </div>
   );

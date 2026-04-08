@@ -16,7 +16,7 @@ export function useTrips() {
 
     const q = query(
       collection(db, 'trips'),
-      where('status', '==', 'open'),
+      where('status', 'in', ['open', 'full']),
       where('departureTime', '>=', Timestamp.fromDate(todayStart)),
       orderBy('departureTime', 'asc'),
     );
