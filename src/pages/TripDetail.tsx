@@ -47,6 +47,7 @@ export function TripDetail() {
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState<PhotoType | null>(null);
+  const [isJoinedPassenger, setIsJoinedPassenger] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoType = useRef<PhotoType | null>(null);
 
@@ -85,6 +86,23 @@ export function TripDetail() {
     return unsubPassengers;
   }, [tripId, trip, firebaseUser]);
 
+  // Subscribe to own passenger doc for non-drivers to detect joined status
+  useEffect(() => {
+    if (!tripId || !firebaseUser || !trip || firebaseUser.uid === trip.driverUid) return;
+
+    const passengerRef = doc(db, 'trips', tripId, 'passengers', firebaseUser.uid);
+    return onSnapshot(
+      passengerRef,
+      (snap) => {
+        setIsJoinedPassenger(snap.exists() && snap.data()?.status === 'confirmed');
+      },
+      (_err) => {
+        setIsJoinedPassenger(false);
+      },
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripId, firebaseUser?.uid, trip?.driverUid]);
+
   // Auto-mark trip as departed when departure time passes
   useEffect(() => {
     if (!trip || !tripId) return;
@@ -112,9 +130,9 @@ export function TripDetail() {
 
   const isDriver = firebaseUser?.uid === trip.driverUid;
   const confirmedPassengers = passengers.filter((p) => p.status === 'confirmed');
-  const isJoined = userProfile
+  const isJoined = isDriver
     ? confirmedPassengers.some((p) => p.uid === firebaseUser?.uid)
-    : false;
+    : isJoinedPassenger;
   const seatsLeft = trip.availableSeats - trip.filledSeats;
   const isFull = seatsLeft <= 0 || trip.status === 'full';
   const showExchange = trip.status === 'open' && isWithinTwoHours(trip.departureTime);
@@ -124,8 +142,14 @@ export function TripDetail() {
     if (!firebaseUser || !userProfile || !tripId) return;
     setActionLoading(true);
     try {
-      const tripRef = doc(db, 'trips', tripId);
       const passengerRef = doc(db, 'trips', tripId, 'passengers', firebaseUser.uid);
+      const existingSnap = await getDoc(passengerRef);
+      if (existingSnap.exists() && existingSnap.data()?.status === 'confirmed') {
+        toast({ title: "You've already joined this trip" });
+        return;
+      }
+
+      const tripRef = doc(db, 'trips', tripId);
 
       await runTransaction(db, async (transaction) => {
         const tripSnap = await transaction.get(tripRef);
@@ -154,9 +178,9 @@ export function TripDetail() {
           uid: firebaseUser.uid,
           fullName: userProfile.fullName,
           mobileNumber: userProfile.mobileNumber,
-          joinedAt: serverTimestamp(),
           status: 'confirmed',
-          deleteAt: tripData.deleteAt ?? ninetyDaysFromNow(),
+          joinedAt: serverTimestamp(),
+          deleteAt: ninetyDaysFromNow(),
         });
       });
 

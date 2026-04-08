@@ -21,8 +21,19 @@ export function Dashboard() {
   const { trips: myTrips } = useMyTrips();
   const { trips: joinedTrips } = useMyJoinedTrips();
 
-  const activeDriverTrip = myTrips.find((t) => t.status === 'open');
-  const todayJoinedTrip = joinedTrips[0] ?? null;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const activeDriverTrips = myTrips.filter((t) => t.status === 'open' || t.status === 'full');
+  const joinedTripIds = new Set(joinedTrips.map((t) => t.id));
+  const todayJoinedTrip = joinedTrips.find(
+    (t) =>
+      (t.status === 'open' || t.status === 'full') &&
+      t.departureTime.toDate() >= todayStart,
+  ) ?? null;
+
+  const openTrips = trips.filter((t) => t.status === 'open');
+  const fullTrips = trips.filter((t) => t.status === 'full');
 
   return (
     <div className="space-y-4 pt-4">
@@ -32,23 +43,50 @@ export function Dashboard() {
         <p className="text-muted-foreground text-sm">{COMMUNITY_NAME} · {dateStr}</p>
       </div>
 
-      {/* Section 2: Active posted trip */}
-      {activeDriverTrip && (
-        <div className="bg-primary-light border border-primary/20 rounded-xl p-4">
-          <p className="text-foreground font-medium">🛺 Your active trip</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {activeDriverTrip.origin} → {activeDriverTrip.destination}
+      {/* Section 2: My ride today (passenger's joined trip) */}
+      {todayJoinedTrip && (
+        <div className="rounded-xl p-4" style={{ backgroundColor: '#FFDE00' }}>
+          <p className="font-medium" style={{ color: '#1a1a1a' }}>🎫 Your ride today</p>
+          <p className="text-sm mt-1" style={{ color: '#1a1a1a' }}>
+            {todayJoinedTrip.driverName} → {todayJoinedTrip.destination}
           </p>
-          <p className="text-sm text-muted-foreground">
-            Departs {activeDriverTrip.departureTime.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })} · {activeDriverTrip.filledSeats}/{activeDriverTrip.availableSeats} seats filled
+          <p className="text-sm" style={{ color: '#1a1a1a' }}>
+            Departs {todayJoinedTrip.departureTime.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })} · {todayJoinedTrip.vehicle.color} {todayJoinedTrip.vehicle.make} {todayJoinedTrip.vehicle.model}
           </p>
-          <Button size="sm" className="mt-3" onClick={() => navigate(`/trip/${activeDriverTrip.id}`)}>
+          <Button
+            size="sm"
+            className="mt-3 bg-black/10 text-black hover:bg-black/20 border-0"
+            onClick={() => navigate(`/trip/${todayJoinedTrip.id}`)}
+          >
             View Trip
           </Button>
         </div>
       )}
 
-      {/* Section 3: Quick Actions */}
+      {/* Section 3: Driver's active posted trips */}
+      {activeDriverTrips.length > 0 && (
+        <div className="bg-primary-light border border-primary/20 rounded-xl p-4 space-y-3">
+          <p className="text-foreground font-medium">
+            🛺 Your active trip{activeDriverTrips.length > 1 ? 's' : ''}
+          </p>
+          {activeDriverTrips.map((t) => (
+            <div key={t.id} className="border-t border-primary/10 pt-3 first:border-0 first:pt-0">
+              <p className="text-sm text-muted-foreground">
+                {t.origin} → {t.destination}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Departs {t.departureTime.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })} · {t.filledSeats}/{t.availableSeats} seats filled
+                {t.status === 'full' && <span className="ml-2 text-xs text-blue-600 font-medium">Full</span>}
+              </p>
+              <Button size="sm" className="mt-2" onClick={() => navigate(`/trip/${t.id}`)}>
+                View Trip
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Section 4: Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
         <Button className="h-14 rounded-xl text-sm font-medium" onClick={() => navigate('/post-trip')}>
           Post a Trip ➕
@@ -58,17 +96,16 @@ export function Dashboard() {
         </Button>
       </div>
 
-      {/* Section 4: Available Trips */}
+      {/* Section 5: Available Trips (open) */}
       <div>
         <h2 className="text-foreground font-semibold mb-3">Available trips today</h2>
-
         {tripsLoading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
           </div>
-        ) : trips.length > 0 ? (
+        ) : openTrips.length > 0 ? (
           <div className="space-y-3">
-            {trips.map((trip) => (
+            {openTrips.map((trip) => (
               <TripCard
                 key={trip.id}
                 trip={{
@@ -88,7 +125,9 @@ export function Dashboard() {
                   waitingMinutes: trip.waitingMinutes,
                   seatsLeft: trip.availableSeats - trip.filledSeats,
                   gasContribution: trip.gasContribution,
+                  status: trip.status,
                 }}
+                alreadyJoined={joinedTripIds.has(trip.id)}
               />
             ))}
           </div>
@@ -99,22 +138,36 @@ export function Dashboard() {
         )}
       </div>
 
-      {/* Section 5: My upcoming ride */}
-      {todayJoinedTrip && todayJoinedTrip.status === 'open' && (
+      {/* Section 6: Full / Ongoing Trips */}
+      {!tripsLoading && fullTrips.length > 0 && (
         <div>
-          <h2 className="text-foreground font-semibold mb-3">My ride today</h2>
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-sm text-foreground font-medium">
-              🛺 {todayJoinedTrip.driverName} → {todayJoinedTrip.destination}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Departs {todayJoinedTrip.departureTime.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })} · {todayJoinedTrip.vehicle.color} {todayJoinedTrip.vehicle.make} {todayJoinedTrip.vehicle.model}
-            </p>
-            <div className="flex gap-2 mt-3">
-              <Button size="sm" className="rounded-lg text-xs" onClick={() => navigate(`/trip/${todayJoinedTrip.id}`)}>
-                View Trip
-              </Button>
-            </div>
+          <h2 className="text-foreground font-semibold mb-3">Full trips / Ongoing</h2>
+          <div className="space-y-3">
+            {fullTrips.map((trip) => (
+              <TripCard
+                key={trip.id}
+                trip={{
+                  id: trip.id,
+                  driverName: trip.driverName,
+                  driverRating: trip.driverRating,
+                  driverTripCount: trip.driverTripCount,
+                  vehicle: {
+                    color: trip.vehicle.color,
+                    make: trip.vehicle.make,
+                    model: trip.vehicle.model,
+                    plateLastThree: trip.vehicle.plateLastThree,
+                  },
+                  origin: trip.origin,
+                  destination: trip.destination,
+                  departureTime: trip.departureTime.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }),
+                  waitingMinutes: trip.waitingMinutes,
+                  seatsLeft: trip.availableSeats - trip.filledSeats,
+                  gasContribution: trip.gasContribution,
+                  status: trip.status,
+                }}
+                alreadyJoined={joinedTripIds.has(trip.id)}
+              />
+            ))}
           </div>
         </div>
       )}

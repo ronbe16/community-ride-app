@@ -11,7 +11,7 @@ export async function uploadExchangePhoto(
 ): Promise<string> {
   const result = await uploadToCloudinary(
     file,
-    `community-ride/exchange/${tripId}`,
+    'community-ride',
   );
 
   const key = `${uploadedBy}_${photoType}`;
