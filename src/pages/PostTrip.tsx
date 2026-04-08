@@ -39,12 +39,17 @@ export function PostTrip() {
   const [gasContribution, setGasContribution] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  if (profileLoading || !userProfile) {
+  if (profileLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
+  }
+
+  if (!userProfile) {
+    navigate('/');
+    return null;
   }
 
   // Require vehicle info to post a trip
