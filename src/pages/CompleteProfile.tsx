@@ -38,6 +38,7 @@ export function CompleteProfile() {
         fullName: state.fullName,
         email: state.email,
         mobileNumber: '+63' + mobile.trim(),
+        status: 'verified',
         consentVersion: CONSENT_VERSION,
         consentAcceptedAt: serverTimestamp(),
         deleteAt: ninetyDaysFromNow(),

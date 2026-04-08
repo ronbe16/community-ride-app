@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from 'firebase/auth';
 import { Download } from 'lucide-react';
-import { InstallGuideDialog } from '@/components/shared/InstallGuideDialog';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -92,25 +91,18 @@ export function Login() {
   };
 
   const { isInstallable, install } = usePwaInstall();
-  const [showInstallGuide, setShowInstallGuide] = useState(false);
-
-  const handleInstallClick = () => {
-    if (isInstallable) {
-      install();
-    } else {
-      setShowInstallGuide(true);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 relative">
-      <button
-        onClick={handleInstallClick}
-        className="absolute top-4 right-4 flex items-center gap-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
-      >
-        <Download className="w-4 h-4" />
-        Install App
-      </button>
+      {isInstallable && (
+        <button
+          onClick={install}
+          className="absolute top-4 right-4 flex items-center gap-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          Install App
+        </button>
+      )}
       <div className="w-full max-w-app">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-2xl font-bold mx-auto mb-4">
@@ -223,7 +215,6 @@ export function Login() {
           </CardContent>
         </Card>
       </div>
-      <InstallGuideDialog open={showInstallGuide} onOpenChange={setShowInstallGuide} />
     </div>
   );
 }
