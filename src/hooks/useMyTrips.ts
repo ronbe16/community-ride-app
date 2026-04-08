@@ -22,7 +22,7 @@ export function useMyTrips() {
     const q = query(
       collection(db, 'trips'),
       where('driverUid', '==', firebaseUser.uid),
-      where('status', 'in', ['open', 'full']),
+      where('status', 'in', ['open', 'full', 'ongoing', 'completed']),
       where('departureTime', '>=', Timestamp.fromDate(todayStart)),
       orderBy('departureTime', 'asc'),
     );
