@@ -31,7 +31,12 @@ export function useTrips() {
         setLoading(false);
       },
       (err) => {
-        console.error('Failed to subscribe to trips:', err);
+        const indexUrl = /https:\/\/console\.firebase\.google\.com\S+/.exec(err.message)?.[0];
+        if (indexUrl) {
+          console.error('Missing Firestore composite index for trips query. Create it here:', indexUrl);
+        } else {
+          console.error('Failed to subscribe to trips:', err);
+        }
         setLoading(false);
       },
     );

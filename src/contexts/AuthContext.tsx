@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, FirestoreError } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { UserProfile } from '@/types';
 import { ninetyDaysFromNow } from '@/lib/retention';
@@ -27,8 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let unsubProfile: (() => void) | undefined;
+    let cancelled = false;
 
-    const unsubAuth = onAuthStateChanged(auth, (user) => {
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
       unsubProfile?.();
       unsubProfile = undefined;
 
@@ -45,17 +46,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       setProfileLoading(true);
 
+      // Write ONCE on login — outside the snapshot to prevent an infinite write loop
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          deleteAt: ninetyDaysFromNow(),
+          lastActiveAt: serverTimestamp(),
+        });
+      } catch (e: unknown) {
+        // doc may not exist yet for new SSO users — safe to ignore
+        if (!(e instanceof FirestoreError && e.code === 'not-found')) {
+          console.error(`Failed to extend retention window for user ${user.uid}:`, e);
+        }
+      }
+
+      if (cancelled) return;
+
       unsubProfile = onSnapshot(
         doc(db, 'users', user.uid),
         (snap) => {
           if (snap.exists()) {
             setUserProfile({ uid: snap.id, ...snap.data() } as UserProfile);
-            updateDoc(doc(db, 'users', user.uid), {
-              deleteAt: ninetyDaysFromNow(),
-              lastActiveAt: serverTimestamp(),
-            }).catch((err: unknown) => {
-              console.error(`Failed to extend retention window for user ${user.uid}:`, err);
-            });
           } else {
             setUserProfile(null);
           }
@@ -69,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      cancelled = true;
       unsubAuth();
       unsubProfile?.();
     };
