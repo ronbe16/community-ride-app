@@ -228,10 +228,7 @@ export function TripDetail() {
           updatedAt: serverTimestamp(),
         });
 
-        transaction.update(passengerRef, {
-          status: 'cancelled',
-          cancelledAt: serverTimestamp(),
-        });
+        transaction.delete(passengerRef);
       });
 
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
@@ -356,12 +353,13 @@ export function TripDetail() {
   }
 
   async function handleGenerateManifest() {
-    if (!tripId) return;
+    if (!tripId || !firebaseUser) return;
     try {
       const expiresAt = Timestamp.fromMillis(
         Date.now() + SAFETY_LINK_EXPIRY_HOURS * 60 * 60 * 1000,
       );
       const manifestDoc = await addDoc(collection(db, 'manifests'), {
+        generatedBy: firebaseUser.uid,
         driver: {
           fullName: trip.driverName,
           vehicle: trip.vehicle,
