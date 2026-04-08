@@ -6,7 +6,6 @@ import { TripCard } from '@/components/dashboard/TripCard';
 import { useTrips } from '@/hooks/useTrips';
 import { useMyTrips } from '@/hooks/useMyTrips';
 import { useMyJoinedTrips } from '@/hooks/useMyJoinedTrips';
-import { getNextWindowLabel } from '@/lib/carpool-windows';
 
 export function Dashboard() {
   const { userProfile } = useAuth();
@@ -18,7 +17,7 @@ export function Dashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const dateStr = now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const { trips, loading: tripsLoading, withinWindow } = useTrips();
+  const { trips, loading: tripsLoading } = useTrips();
   const { trips: myTrips } = useMyTrips();
   const { trips: joinedTrips } = useMyJoinedTrips();
 
@@ -63,18 +62,7 @@ export function Dashboard() {
       <div>
         <h2 className="text-foreground font-semibold mb-3">Available trips today</h2>
 
-        {!withinWindow ? (
-          <div className="text-center py-10 text-gray-400">
-            <div className="text-4xl mb-3">🌙</div>
-            <p className="font-medium text-gray-600">Carpool window is closed</p>
-            <p className="text-sm mt-1">
-              Next window opens at <span className="font-medium text-emerald-600">{getNextWindowLabel()}</span>
-            </p>
-            <p className="text-xs mt-3 text-gray-400">
-              Morning: 5:00 AM – 10:00 AM · Evening: 4:00 PM – 10:00 PM
-            </p>
-          </div>
-        ) : tripsLoading ? (
+        {tripsLoading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
           </div>
