@@ -79,7 +79,8 @@ export function Signup() {
         });
       } catch (firestoreErr) {
         console.error('Firestore profile write failed (auth account created):', firestoreErr);
-        setError('Account created but profile save failed. It will be retried on next login.');
+        setError('Account created but profile save failed. Please try again.');
+        return;
       }
       navigate('/');
     } catch (err: unknown) {
