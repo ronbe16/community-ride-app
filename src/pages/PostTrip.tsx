@@ -97,7 +97,10 @@ export function PostTrip() {
         where('departureTime', '<=', Timestamp.fromDate(todayEnd)),
       );
       const existingSnap = await getDocs(existingQ);
-      if (existingSnap.size >= MAX_TRIPS_PER_DAY) {
+      const activeTripsToday = existingSnap.docs.filter(
+        (d) => d.data().status !== 'cancelled',
+      ).length;
+      if (activeTripsToday >= MAX_TRIPS_PER_DAY) {
         toast({
           title: 'Daily limit reached',
           description: `You've reached the maximum ${MAX_TRIPS_PER_DAY} trips for today (per LTFRB guidelines).`,
