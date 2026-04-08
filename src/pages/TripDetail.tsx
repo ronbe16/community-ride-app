@@ -44,8 +44,6 @@ export function TripDetail() {
   const [actionLoading, setActionLoading] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
-  const [showShareOptions, setShowShareOptions] = useState(false);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState<PhotoType | null>(null);
   const [isJoinedPassenger, setIsJoinedPassenger] = useState(false);
   const [driverMobile, setDriverMobile] = useState<string | null>(null);
@@ -108,6 +106,7 @@ export function TripDetail() {
   useEffect(() => {
     if (!trip || !firebaseUser || firebaseUser.uid === trip.driverUid) return;
     if (!isJoinedPassenger) return;
+    console.log('isJoinedPassenger:', isJoinedPassenger, 'driverMobile:', driverMobile);
     getDoc(doc(db, 'users', trip.driverUid)).then((snap) => {
       if (snap.exists()) {
         setDriverMobile((snap.data().mobileNumber as string) ?? null);
@@ -423,15 +422,17 @@ export function TripDetail() {
         });
       }
 
-      const url = `${window.location.origin}/safety/${tripId}`;
-      const shareText = `Trip safety card: ${trip.driverName} driving ${trip.vehicle.color} ${trip.vehicle.make} ${trip.vehicle.model} to ${trip.destination}. Departure: ${formatTime(trip.departureTime)}.`;
-      const shareData = { title: 'Trip Safety Card – Community Ride', text: shareText, url };
-
-      if (navigator.share && navigator.canShare(shareData)) {
+      const shareUrl = `${window.location.origin}/safety/${tripId}`;
+      const shareData = {
+        title: 'Community Ride — Trip Safety Card',
+        text: `Safety card for trip from ${trip.origin} to ${trip.destination}.`,
+        url: shareUrl,
+      };
+      if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        setShareUrl(url);
-        setShowShareOptions(true);
+        await navigator.clipboard.writeText(shareUrl);
+        toast({ title: 'Link copied to clipboard!' });
       }
     } catch (err: unknown) {
       console.error(`Failed to generate safety card for trip ${tripId}:`, err);
@@ -785,52 +786,7 @@ export function TripDetail() {
         </div>
       )}
 
-      {/* Share Options Fallback Sheet */}
-      {showShareOptions && shareUrl && (
-        <div className="fixed inset-0 bg-black/50 flex items-end z-50">
-          <div className="bg-white w-full rounded-t-2xl p-6 space-y-3">
-            <h3 className="font-semibold text-gray-900 text-center">Share safety card</h3>
 
-            <a
-              href={`https://www.facebook.com/dialog/send?link=${encodeURIComponent(shareUrl)}&app_id=YOUR_FB_APP_ID&redirect_uri=${encodeURIComponent(window.location.origin)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 w-full p-4 border border-gray-200 rounded-xl hover:bg-gray-50"
-            >
-              <span className="text-2xl">💬</span>
-              <span className="font-medium">Facebook Messenger</span>
-            </a>
-
-            <a
-              href={`viber://forward?text=${encodeURIComponent(shareUrl)}`}
-              className="flex items-center gap-3 w-full p-4 border border-gray-200 rounded-xl hover:bg-gray-50"
-            >
-              <span className="text-2xl">📱</span>
-              <span className="font-medium">Viber</span>
-            </a>
-
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(shareUrl).catch((err: unknown) => {
-                  console.error('Failed to copy to clipboard:', err);
-                });
-                toast({ title: 'Link copied!' });
-              }}
-              className="flex items-center gap-3 w-full p-4 border border-gray-200 rounded-xl hover:bg-gray-50"
-            >
-              <span className="text-2xl">🔗</span>
-              <span className="font-medium">Copy link</span>
-            </button>
-
-            <button
-              onClick={() => setShowShareOptions(false)}
-              className="w-full text-gray-500 py-2 text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

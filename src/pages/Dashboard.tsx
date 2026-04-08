@@ -32,6 +32,14 @@ export function Dashboard() {
       t.departureTime.toDate() >= todayStart,
   ) ?? null;
 
+  // Ongoing trips — driver's own + passenger's joined, deduplicated
+  const ongoingDriverTrips = myTrips.filter((t) => t.status === 'ongoing');
+  const ongoingDriverTripIds = new Set(ongoingDriverTrips.map((t) => t.id));
+  const allOngoingTrips = [
+    ...ongoingDriverTrips,
+    ...joinedTrips.filter((t) => t.status === 'ongoing' && !ongoingDriverTripIds.has(t.id)),
+  ];
+
   const openTrips = trips.filter((t) => t.status === 'open');
   const fullTrips = trips.filter((t) => t.status === 'full');
 
@@ -60,6 +68,32 @@ export function Dashboard() {
           >
             View Trip
           </Button>
+        </div>
+      )}
+
+      {/* Ongoing trip(s) — driver or passenger */}
+      {allOngoingTrips.length > 0 && (
+        <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: '#FFDE00' }}>
+          <p className="font-medium" style={{ color: '#1a1a1a' }}>
+            🚗 Your ongoing trip{allOngoingTrips.length !== 1 ? 's' : ''}
+          </p>
+          {allOngoingTrips.map((t) => (
+            <div key={t.id} className="border-t border-black/10 pt-3 first:border-0 first:pt-0">
+              <p className="text-sm font-medium" style={{ color: '#1a1a1a' }}>
+                {t.origin} → {t.destination}
+              </p>
+              <p className="text-sm" style={{ color: '#1a1a1a' }}>
+                {t.vehicle.color} {t.vehicle.make} {t.vehicle.model} · {t.filledSeats}/{t.availableSeats} seats
+              </p>
+              <Button
+                size="sm"
+                className="mt-2 bg-black/10 text-black hover:bg-black/20 border-0"
+                onClick={() => navigate(`/trip/${t.id}`)}
+              >
+                View Trip
+              </Button>
+            </div>
+          ))}
         </div>
       )}
 
