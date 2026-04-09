@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { COMMUNITY_NAME } from '@/constants/app';
-import { ExchangePhoto } from '@/types';
 
 interface SafetyLinkData {
   communityName: string;
@@ -26,7 +25,11 @@ interface SafetyLinkData {
     destination: string;
     departureTime: { toDate: () => Date };
   };
-  exchangePhotos?: Record<string, ExchangePhoto>;
+  exchangePhotos?: {
+    faceUrl: string | null;
+    idUrl: string | null;
+    plateUrl: string | null;
+  };
   expiresAt: { toDate: () => Date };
 }
 
@@ -82,8 +85,6 @@ export function SafetyCard() {
   if (loading) return <LoadingScreen />;
   if (!data || expired) return <ExpiredScreen />;
 
-  const exchangePhotos = data.exchangePhotos ? Object.values(data.exchangePhotos) : [];
-
   return (
     <div className="min-h-screen bg-gray-50 p-4 max-w-[480px] mx-auto">
       {/* Header */}
@@ -137,30 +138,23 @@ export function SafetyCard() {
         </div>
       </div>
 
-      {/* Exchange photos */}
-      {exchangePhotos.length > 0 && (
+      {/* Safety photos */}
+      {(data.exchangePhotos?.faceUrl || data.exchangePhotos?.idUrl || data.exchangePhotos?.plateUrl) && (
         <div className="border border-gray-200 rounded-xl p-4 mb-4 bg-white">
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-3">
-            Safety photos (deleted 24hrs after trip)
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {exchangePhotos.map((photo) => (
-              <div key={photo.publicId}>
-                <div className="aspect-square">
-                  <img
-                    src={photo.url}
-                    alt={photo.type}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                </div>
-                <div className="text-xs text-gray-400 text-center mt-1 capitalize">
-                  {photo.type}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="text-xs text-gray-400 mt-2 text-center">
-            These photos are automatically deleted 24 hours after the trip
+          <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Safety Photos</div>
+          <p className="text-xs text-gray-400 mb-3">
+            Shared by passenger for verification. Deleted 24 hours after trip.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {data.exchangePhotos.faceUrl && (
+              <img src={data.exchangePhotos.faceUrl} alt="Face photo" style={{ width: 120, borderRadius: 8 }} />
+            )}
+            {data.exchangePhotos.idUrl && (
+              <img src={data.exchangePhotos.idUrl} alt="ID card" style={{ width: 120, borderRadius: 8 }} />
+            )}
+            {data.exchangePhotos.plateUrl && (
+              <img src={data.exchangePhotos.plateUrl} alt="Plate number" style={{ width: 120, borderRadius: 8 }} />
+            )}
           </div>
         </div>
       )}
