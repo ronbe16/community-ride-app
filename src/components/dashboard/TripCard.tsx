@@ -65,6 +65,11 @@ export function TripCard({ trip, alreadyJoined = false, hasOngoingRide = false }
       >
         {alreadyJoined ? 'Already joined' : isFull ? 'Trip Full' : hasOngoingRide ? 'Ongoing ride active' : 'Join Trip'}
       </Button>
+      {!alreadyJoined && !isFull && (
+        <p className="text-xs text-muted-foreground text-center mt-1">
+          📞 Driver contact visible after joining
+        </p>
+      )}
     </div>
   );
 }
