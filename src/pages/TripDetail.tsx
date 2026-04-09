@@ -386,76 +386,61 @@ export function TripDetail() {
     }
   }
 
-  // Fix 3 — Unified Trip Safety Card, keyed by tripId (idempotent)
+  // Always overwrite — photos may have been added since last share
   async function handleShareSafetyCard() {
     if (!firebaseUser || !tripId) return;
-    console.log('handleShareSafetyCard: firebaseUser?.uid =', firebaseUser?.uid);
     try {
-      const safetyRef = doc(db, 'safety_links', tripId);
-      const existing = await getDoc(safetyRef);
-
-      if (!existing.exists()) {
-        // For non-drivers: attempt to fetch the passengers list
-        let passengersList = confirmedPassengers;
-        if (!isDriver) {
-          try {
-            const passSnap = await getDocs(
-              query(collection(db, 'trips', tripId, 'passengers'), where('status', '==', 'confirmed')),
-            );
-            passengersList = passSnap.docs.map((d) => ({ uid: d.id, ...d.data() } as PassengerEntry));
-          } catch (err: unknown) {
-            console.error(`Failed to fetch passengers for safety card (trip ${tripId}):`, err);
-            passengersList = [];
-          }
+      // For non-drivers: fetch the live passengers list since they don't subscribe to it
+      let passengersList = confirmedPassengers;
+      if (!isDriver) {
+        try {
+          const passSnap = await getDocs(
+            query(collection(db, 'trips', tripId, 'passengers'), where('status', '==', 'confirmed')),
+          );
+          passengersList = passSnap.docs.map((d) => ({ uid: d.id, ...d.data() } as PassengerEntry));
+        } catch (err: unknown) {
+          console.error(`Failed to fetch passengers for safety card (trip ${tripId}):`, err);
+          passengersList = [];
         }
-
-        const expiresAt = Timestamp.fromMillis(
-          trip.departureTime.toDate().getTime() + SAFETY_LINK_EXPIRY_HOURS * 60 * 60 * 1000,
-        );
-
-        const allPhotos = trip.exchangePhotos ? Object.values(trip.exchangePhotos) : [];
-        const facePhoto = allPhotos.find((p) => p.type === 'face');
-        const idPhoto = allPhotos.find((p) => p.type === 'id');
-        const platePhoto = allPhotos.find((p) => p.type === 'plate');
-
-        await setDoc(safetyRef, {
-          type: 'trip_safety_card',
-          generatedBy: firebaseUser.uid,
-          tripId,
-          communityName: COMMUNITY_NAME,
-          driver: {
-            fullName: trip.driverName,
-            vehicle: trip.vehicle,
-          },
-          trip: {
-            origin: trip.origin,
-            destination: trip.destination,
-            departureTime: trip.departureTime,
-            waitingMinutes: trip.waitingMinutes,
-          },
-          passengers: passengersList.map((p) => {
-            const pPhotos = allExchangePhotos.filter((photo) => photo.uploadedBy === p.uid);
-            return {
-              fullName: p.fullName,
-              joinedAt: p.joinedAt,
-              exchangePhotos: {
-                faceUrl: pPhotos.find((photo) => photo.type === 'face')?.url ?? null,
-                idUrl: pPhotos.find((photo) => photo.type === 'id')?.url ?? null,
-                plateUrl: pPhotos.find((photo) => photo.type === 'plate')?.url ?? null,
-              },
-              boardScanUrl: p.boardPhotoUrl ?? null,
-            };
-          }),
-          exchangePhotos: {
-            faceUrl: facePhoto?.url ?? null,
-            idUrl: idPhoto?.url ?? null,
-            plateUrl: platePhoto?.url ?? null,
-          },
-          expiresAt,
-          deleteAt: ninetyDaysFromNow(),
-          createdAt: serverTimestamp(),
-        });
       }
+
+      const expiresAt = Timestamp.fromMillis(
+        trip.departureTime.toDate().getTime() + SAFETY_LINK_EXPIRY_HOURS * 60 * 60 * 1000,
+      );
+
+      // Always overwrite with latest data — no existence check
+      await setDoc(doc(db, 'safety_links', tripId), {
+        type: 'trip_safety_card',
+        generatedBy: firebaseUser.uid,
+        tripId,
+        communityName: COMMUNITY_NAME,
+        driver: {
+          fullName: trip.driverName,
+          vehicle: trip.vehicle,
+        },
+        trip: {
+          origin: trip.origin,
+          destination: trip.destination,
+          departureTime: trip.departureTime,
+          waitingMinutes: trip.waitingMinutes,
+        },
+        passengers: passengersList.map((p) => {
+          const pPhotos = allExchangePhotos.filter((photo) => photo.uploadedBy === p.uid);
+          return {
+            fullName: p.fullName,
+            joinedAt: p.joinedAt,
+            exchangePhotos: {
+              faceUrl: pPhotos.find((photo) => photo.type === 'face')?.url ?? null,
+              idUrl: pPhotos.find((photo) => photo.type === 'id')?.url ?? null,
+              plateUrl: pPhotos.find((photo) => photo.type === 'plate')?.url ?? null,
+            },
+            boardScanUrl: p.boardPhotoUrl ?? null,
+          };
+        }),
+        expiresAt,
+        deleteAt: ninetyDaysFromNow(),
+        createdAt: serverTimestamp(),
+      }, { merge: false });
 
       const shareUrl = `${window.location.origin}/safety/${tripId}`;
       const shareData = {
