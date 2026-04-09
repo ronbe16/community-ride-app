@@ -45,6 +45,7 @@ export function TripDetail() {
   const [completing, setCompleting] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState<PhotoType | null>(null);
+  const [copied, setCopied] = useState(false);
   const [isJoinedPassenger, setIsJoinedPassenger] = useState(false);
   const [driverMobile, setDriverMobile] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -407,6 +408,11 @@ export function TripDetail() {
           trip.departureTime.toDate().getTime() + SAFETY_LINK_EXPIRY_HOURS * 60 * 60 * 1000,
         );
 
+        const allPhotos = trip.exchangePhotos ? Object.values(trip.exchangePhotos) : [];
+        const facePhoto = allPhotos.find((p) => p.type === 'face');
+        const idPhoto = allPhotos.find((p) => p.type === 'id');
+        const platePhoto = allPhotos.find((p) => p.type === 'plate');
+
         await setDoc(safetyRef, {
           type: 'trip_safety_card',
           generatedBy: firebaseUser.uid,
@@ -426,7 +432,11 @@ export function TripDetail() {
             firstName: p.fullName.split(' ')[0],
             joinedAt: p.joinedAt,
           })),
-          hasExchangePhotos: exchangePhotoCount > 0,
+          exchangePhotos: {
+            faceUrl: facePhoto?.url ?? null,
+            idUrl: idPhoto?.url ?? null,
+            plateUrl: platePhoto?.url ?? null,
+          },
           expiresAt,
           deleteAt: ninetyDaysFromNow(),
           createdAt: serverTimestamp(),
@@ -443,6 +453,8 @@ export function TripDetail() {
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
         toast({ title: 'Link copied to clipboard!' });
       }
     } catch (err: unknown) {
@@ -631,7 +643,7 @@ export function TripDetail() {
           className="w-full h-11 rounded-xl"
           onClick={handleShareSafetyCard}
         >
-          Share Safety Card
+          {copied ? '✓ Copied!' : 'Share Safety Card'}
         </Button>
       )}
 
