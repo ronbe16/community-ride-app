@@ -49,6 +49,7 @@ export function TripDetail() {
   const [copied, setCopied] = useState(false);
   const [isJoinedPassenger, setIsJoinedPassenger] = useState(false);
   const [driverMobile, setDriverMobile] = useState<string | null>(null);
+  const [boardScanUrl, setBoardScanUrl] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewType, setPreviewType] = useState<PhotoType | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
@@ -99,9 +100,11 @@ export function TripDetail() {
       passengerRef,
       (snap) => {
         setIsJoinedPassenger(snap.exists() && snap.data()?.status === 'confirmed');
+        setBoardScanUrl(snap.exists() ? (snap.data()?.boardPhotoUrl as string | null) ?? null : null);
       },
       (_err) => {
         setIsJoinedPassenger(false);
+        setBoardScanUrl(null);
       },
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,7 +154,7 @@ export function TripDetail() {
     : isJoinedPassenger;
   const seatsLeft = trip.availableSeats - trip.filledSeats;
   const isFull = seatsLeft <= 0 || trip.status === 'full';
-  const showExchange = (isDriver || isJoinedPassenger) && trip.status === 'open' && isWithinTwoHours(trip.departureTime);
+  const showExchange = isJoinedPassenger && trip.status === 'open' && isWithinTwoHours(trip.departureTime);
   const exchangePhotoCount = trip.exchangePhotos ? Object.keys(trip.exchangePhotos).length : 0;
   const allExchangePhotos = trip.exchangePhotos ? Object.values(trip.exchangePhotos) : [];
   const isOngoing = trip.status === 'ongoing' || trip.status === 'completed';
@@ -430,11 +433,9 @@ export function TripDetail() {
           return {
             fullName: p.fullName,
             joinedAt: p.joinedAt,
-            exchangePhotos: {
-              faceUrl: pPhotos.find((photo) => photo.type === 'face')?.url ?? null,
-              idUrl: pPhotos.find((photo) => photo.type === 'id')?.url ?? null,
-              plateUrl: pPhotos.find((photo) => photo.type === 'plate')?.url ?? null,
-            },
+            facePhotoUrl: pPhotos.find((photo) => photo.type === 'face')?.url ?? null,
+            idPhotoUrl: pPhotos.find((photo) => photo.type === 'id')?.url ?? null,
+            platePhotoUrl: pPhotos.find((photo) => photo.type === 'plate')?.url ?? null,
             boardScanUrl: p.boardPhotoUrl ?? null,
           };
         }),
@@ -763,6 +764,18 @@ export function TripDetail() {
             })}
           </div>
 
+          {/* Read-only: driver's boarding scan of you */}
+          {boardScanUrl && (
+            <div className="mt-3">
+              <div className="text-xs text-amber-700 font-medium mb-1">
+                Driver's boarding scan of you
+              </div>
+              <div className="relative w-14 h-14">
+                <img src={boardScanUrl} className="w-14 h-14 object-cover rounded-lg" />
+              </div>
+            </div>
+          )}
+
           {exchangePhotoCount > 0 && (
             <button
               onClick={handleShareSafetyCard}
@@ -794,45 +807,79 @@ export function TripDetail() {
           ) : (
             <div className="space-y-2">
               {/* Fix 5 — tel: links for each passenger (driver view) */}
-              {confirmedPassengers.map((p, i) => (
-                <div key={p.uid} className="bg-card border border-border rounded-xl p-3 flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-foreground text-sm font-medium">{p.fullName}</p>
-                    <a
-                      href={`tel:${p.mobileNumber}`}
-                      className="text-primary text-xs font-medium"
-                    >
-                      📞 {p.mobileNumber}
-                    </a>
-                    <p className="text-muted-foreground text-xs">
-                      Joined {p.joinedAt?.toDate ? formatDatetime(p.joinedAt as Timestamp) : '—'}
-                    </p>
-                  </div>
-                  {(scanPreviews[p.uid] ?? p.boardPhotoUrl) ? (
-                    <div style={{ position: 'relative', width: 56, height: 56 }}>
-                      <img
-                        src={scanPreviews[p.uid] ?? p.boardPhotoUrl}
-                        alt="Board scan"
-                        style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }}
-                      />
-                      <div style={{
-                        position: 'absolute', inset: 0, background: 'rgba(0,180,0,0.35)',
-                        borderRadius: 8, display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', fontSize: 20,
-                      }}>✓</div>
+              {confirmedPassengers.map((p, i) => {
+                const pPhotos = allExchangePhotos.filter((photo) => photo.uploadedBy === p.uid);
+                const facePhotoUrl = pPhotos.find((ph) => ph.type === 'face')?.url;
+                const idPhotoUrl = pPhotos.find((ph) => ph.type === 'id')?.url;
+                const platePhotoUrl = pPhotos.find((ph) => ph.type === 'plate')?.url;
+                return (
+                  <div key={p.uid} className="bg-card border border-border rounded-xl p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-foreground text-sm font-medium">{p.fullName}</p>
+                        <a
+                          href={`tel:${p.mobileNumber}`}
+                          className="text-primary text-xs font-medium"
+                        >
+                          📞 {p.mobileNumber}
+                        </a>
+                        <p className="text-muted-foreground text-xs">
+                          Joined {p.joinedAt?.toDate ? formatDatetime(p.joinedAt as Timestamp) : '—'}
+                        </p>
+                      </div>
+                      {(scanPreviews[p.uid] ?? p.boardPhotoUrl) ? (
+                        <div style={{ position: 'relative', width: 56, height: 56 }}>
+                          <img
+                            src={scanPreviews[p.uid] ?? p.boardPhotoUrl}
+                            alt="Board scan"
+                            style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }}
+                          />
+                          <div style={{
+                            position: 'absolute', inset: 0, background: 'rgba(0,180,0,0.35)',
+                            borderRadius: 8, display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', fontSize: 20,
+                          }}>✓</div>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs shrink-0"
+                          onClick={() => handleScanPassenger(i)}
+                        >
+                          📷 Scan
+                        </Button>
+                      )}
                     </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs shrink-0"
-                      onClick={() => handleScanPassenger(i)}
-                    >
-                      📷 Scan
-                    </Button>
-                  )}
-                </div>
-              ))}
+                    {/* Read-only: what this passenger photographed of the driver */}
+                    {(facePhotoUrl || idPhotoUrl || platePhotoUrl) && (
+                      <div className="mt-2">
+                        <div className="text-xs text-gray-400 mb-1">Photos this passenger took of you</div>
+                        <div className="flex gap-2">
+                          {facePhotoUrl && (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <img src={facePhotoUrl} className="w-12 h-12 object-cover rounded-lg" />
+                              <span className="text-xs text-gray-400">Face</span>
+                            </div>
+                          )}
+                          {idPhotoUrl && (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <img src={idPhotoUrl} className="w-12 h-12 object-cover rounded-lg" />
+                              <span className="text-xs text-gray-400">ID</span>
+                            </div>
+                          )}
+                          {platePhotoUrl && (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <img src={platePhotoUrl} className="w-12 h-12 object-cover rounded-lg" />
+                              <span className="text-xs text-gray-400">Plate</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
