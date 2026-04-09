@@ -17,9 +17,10 @@ interface TripCardProps {
     status?: string;
   };
   alreadyJoined?: boolean;
+  hasOngoingRide?: boolean;
 }
 
-export function TripCard({ trip, alreadyJoined = false }: TripCardProps) {
+export function TripCard({ trip, alreadyJoined = false, hasOngoingRide = false }: TripCardProps) {
   const navigate = useNavigate();
   const isFull = trip.seatsLeft <= 0 || trip.status === 'full';
 
@@ -56,12 +57,13 @@ export function TripCard({ trip, alreadyJoined = false }: TripCardProps) {
         {trip.gasContribution ? `Gas: ₱${trip.gasContribution}` : 'Discuss with driver'}
       </p>
       <Button
-        className={`w-full rounded-lg mt-1 ${alreadyJoined || isFull ? 'bg-gray-100 text-gray-400 hover:bg-gray-100 cursor-not-allowed' : ''}`}
+        className={`w-full rounded-lg mt-1 ${alreadyJoined || isFull || hasOngoingRide ? 'bg-gray-100 text-gray-400 hover:bg-gray-100 cursor-not-allowed' : ''}`}
         size="sm"
-        disabled={alreadyJoined || isFull}
+        disabled={alreadyJoined || isFull || hasOngoingRide}
+        title={hasOngoingRide && !alreadyJoined && !isFull ? 'Complete your current ride first' : undefined}
         onClick={() => navigate(`/trip/${trip.id}`)}
       >
-        {alreadyJoined ? 'Already joined' : isFull ? 'Trip Full' : 'Join Trip'}
+        {alreadyJoined ? 'Already joined' : isFull ? 'Trip Full' : hasOngoingRide ? 'Ongoing ride active' : 'Join Trip'}
       </Button>
     </div>
   );

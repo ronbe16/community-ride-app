@@ -26,6 +26,7 @@ export function Dashboard() {
 
   const activeDriverTrips = myTrips.filter((t) => t.status === 'open' || t.status === 'full');
   const joinedTripIds = new Set(joinedTrips.map((t) => t.id));
+  const hasOngoingRide = joinedTrips.some((t) => t.status === 'ongoing');
   const todayJoinedTrip = joinedTrips.find(
     (t) =>
       (t.status === 'open' || t.status === 'full') &&
@@ -162,6 +163,7 @@ export function Dashboard() {
                   status: trip.status,
                 }}
                 alreadyJoined={joinedTripIds.has(trip.id)}
+                hasOngoingRide={hasOngoingRide}
               />
             ))}
           </div>
@@ -200,6 +202,7 @@ export function Dashboard() {
                   status: trip.status,
                 }}
                 alreadyJoined={joinedTripIds.has(trip.id)}
+                hasOngoingRide={hasOngoingRide}
               />
             ))}
           </div>

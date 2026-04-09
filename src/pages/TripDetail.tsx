@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   doc, onSnapshot, getDoc, addDoc, setDoc,
   collection, serverTimestamp, arrayUnion, arrayRemove, Timestamp,
-  runTransaction, increment, writeBatch, getDocs, query, where, updateDoc,
+  runTransaction, increment, writeBatch, getDocs, query, where, updateDoc, documentId,
 } from 'firebase/firestore';
 import { uploadPassengerScan } from '@/lib/cloudinary';
 import { uploadExchangePhoto } from '@/lib/safety-exchange';
@@ -102,11 +102,9 @@ export function TripDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId, firebaseUser?.uid, trip?.driverUid]);
 
-  // Fetch driver mobile number for confirmed passengers (Fix 5)
+  // Fetch driver mobile number for confirmed passengers
   useEffect(() => {
-    if (!trip || !firebaseUser || firebaseUser.uid === trip.driverUid) return;
-    if (!isJoinedPassenger) return;
-    console.log('isJoinedPassenger:', isJoinedPassenger, 'driverMobile:', driverMobile);
+    if (!isJoinedPassenger || !trip?.driverUid) return;
     getDoc(doc(db, 'users', trip.driverUid)).then((snap) => {
       if (snap.exists()) {
         setDriverMobile((snap.data().mobileNumber as string) ?? null);
@@ -114,8 +112,7 @@ export function TripDetail() {
     }).catch((err: unknown) => {
       console.error(`Failed to fetch driver mobile for trip ${tripId}:`, err);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trip?.driverUid, isJoinedPassenger, firebaseUser?.uid]);
+  }, [isJoinedPassenger, trip?.driverUid]);
 
   // Auto-mark trip as departed when departure time passes
   useEffect(() => {
@@ -162,6 +159,21 @@ export function TripDetail() {
       if (existingSnap.exists() && existingSnap.data()?.status === 'confirmed') {
         toast({ title: "You've already joined this trip" });
         return;
+      }
+
+      // Block joining if passenger already has an ongoing ride
+      const userDocSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+      const joinedIds: string[] = userDocSnap.data()?.joinedTripIds ?? [];
+      if (joinedIds.length > 0) {
+        const ongoingRideSnap = await getDocs(query(
+          collection(db, 'trips'),
+          where(documentId(), 'in', joinedIds.slice(0, 30)),
+          where('status', '==', 'ongoing'),
+        ));
+        if (!ongoingRideSnap.empty) {
+          toast({ title: 'You already have an ongoing ride', description: 'Complete your current ride first.', variant: 'destructive' });
+          return;
+        }
       }
 
       const tripRef = doc(db, 'trips', tripId);
@@ -328,34 +340,10 @@ export function TripDetail() {
     setCompleting(true);
 
     try {
-      const passengersSnap = await getDocs(
-        query(
-          collection(db, 'trips', tripId, 'passengers'),
-          where('status', '==', 'confirmed'),
-        ),
-      );
-
-      const batch = writeBatch(db);
-
-      batch.update(doc(db, 'trips', tripId), {
+      await updateDoc(doc(db, 'trips', tripId), {
         status: 'completed',
         completedAt: serverTimestamp(),
       });
-
-      batch.update(doc(db, 'users', firebaseUser.uid), {
-        tripCount: increment(1),
-      });
-
-      passengersSnap.docs.forEach((passengerDoc) => {
-        const passengerData = passengerDoc.data();
-        if (passengerData.uid) {
-          batch.update(doc(db, 'users', passengerData.uid), {
-            tripCount: increment(1),
-          });
-        }
-      });
-
-      await batch.commit();
       setShowCompletionModal(true);
     } catch (err: unknown) {
       console.error(`Failed to complete trip ${tripId}:`, err);
@@ -364,6 +352,29 @@ export function TripDetail() {
         description: 'Please try again.',
         variant: 'destructive',
       });
+      setCompleting(false);
+      return;
+    }
+
+    // Secondary writes: increment trip counts — failures do not affect completion
+    try {
+      const passengersSnap = await getDocs(
+        query(
+          collection(db, 'trips', tripId, 'passengers'),
+          where('status', '==', 'confirmed'),
+        ),
+      );
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'users', firebaseUser.uid), { tripCount: increment(1) });
+      passengersSnap.docs.forEach((passengerDoc) => {
+        const passengerData = passengerDoc.data();
+        if (passengerData.uid) {
+          batch.update(doc(db, 'users', passengerData.uid), { tripCount: increment(1) });
+        }
+      });
+      await batch.commit();
+    } catch (err: unknown) {
+      console.error(`Failed to update trip counts for trip ${tripId}:`, err);
     } finally {
       setCompleting(false);
     }
@@ -437,6 +448,28 @@ export function TripDetail() {
     } catch (err: unknown) {
       console.error(`Failed to generate safety card for trip ${tripId}:`, err);
       toast({ title: 'Failed to generate link', description: 'Please try again.', variant: 'destructive' });
+    }
+  }
+
+  async function handleShareManifest() {
+    if (!tripId || !trip) return;
+    const manifestUrl = `${window.location.origin}/manifest/${tripId}`;
+    const shareData = {
+      title: 'Community Ride — Passenger Manifest',
+      text: `LTFRB Passenger Manifest for trip from ${trip.origin} to ${trip.destination}.`,
+      url: manifestUrl,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(manifestUrl);
+        toast({ title: 'Manifest link copied!' });
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        console.error(`Failed to share manifest for trip ${tripId}:`, err);
+      }
     }
   }
 
@@ -570,16 +603,36 @@ export function TripDetail() {
         )}
       </div>
 
-      {/* Fix 4 — View Manifest: visible to driver and confirmed passengers once trip is ongoing/completed */}
+      {/* View Manifest + Share Manifest: driver and confirmed passengers once ongoing/completed */}
       {isOngoing && (isDriver || isJoinedPassenger) && (
-        <a
-          href={`/manifest/${tripId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full h-11 rounded-xl border border-border bg-card text-foreground text-sm font-medium hover:bg-muted transition-colors"
+        <div className="flex gap-2">
+          <a
+            href={`/manifest/${tripId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl border border-border bg-card text-foreground text-sm font-medium hover:bg-muted transition-colors"
+          >
+            📋 View Manifest
+          </a>
+          <Button
+            variant="outline"
+            className="flex-1 h-11 rounded-xl"
+            onClick={handleShareManifest}
+          >
+            Share Manifest
+          </Button>
+        </div>
+      )}
+
+      {/* Share Safety Card — always visible for driver or confirmed passenger */}
+      {(isDriver || isJoinedPassenger) && (
+        <Button
+          variant="outline"
+          className="w-full h-11 rounded-xl"
+          onClick={handleShareSafetyCard}
         >
-          📋 View Manifest
-        </a>
+          Share Safety Card
+        </Button>
       )}
 
       {/* Passenger Actions (non-driver view) */}
@@ -590,14 +643,6 @@ export function TripDetail() {
               <div className="bg-primary-light border border-primary/20 rounded-xl p-4 text-center">
                 <p className="text-primary font-semibold">✓ You're in!</p>
               </div>
-              {/* Fix 3 — Share Safety Card (passenger) */}
-              <Button
-                className="w-full h-12 rounded-xl"
-                onClick={handleShareSafetyCard}
-                disabled={actionLoading}
-              >
-                Share Safety Card
-              </Button>
               <button
                 className="text-destructive text-sm underline w-full text-center"
                 onClick={handleCancelSeat}
@@ -724,21 +769,12 @@ export function TripDetail() {
 
           {(trip.status === 'open' || trip.status === 'full') && (
             <>
-              {/* Fix 4 — Start Trip replaces Generate Manifest */}
               <Button
                 className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={handleStartTrip}
                 disabled={actionLoading}
               >
                 {actionLoading ? 'Starting…' : '🚀 Start Trip'}
-              </Button>
-              {/* Fix 3 — Share Safety Card (driver) */}
-              <Button
-                className="w-full rounded-xl"
-                onClick={handleShareSafetyCard}
-                disabled={actionLoading}
-              >
-                Share Safety Card
               </Button>
               <Button
                 className="w-full rounded-xl"

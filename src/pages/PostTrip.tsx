@@ -109,6 +109,21 @@ export function PostTrip() {
         return;
       }
 
+      // Block posting if driver already has an ongoing trip
+      const ongoingSnap = await getDocs(query(
+        collection(db, 'trips'),
+        where('driverUid', '==', firebaseUser.uid),
+        where('status', '==', 'ongoing'),
+      ));
+      if (!ongoingSnap.empty) {
+        toast({
+          title: 'Ongoing trip in progress',
+          description: 'You have an ongoing trip. Complete it before posting a new one.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       // Build departure Timestamp from today's date + chosen time
       const [hours, minutes] = departureTime.split(':').map(Number);
       const departureDate = new Date();
