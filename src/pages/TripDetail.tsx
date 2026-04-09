@@ -48,6 +48,9 @@ export function TripDetail() {
   const [copied, setCopied] = useState(false);
   const [isJoinedPassenger, setIsJoinedPassenger] = useState(false);
   const [driverMobile, setDriverMobile] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewType, setPreviewType] = useState<PhotoType | null>(null);
+  const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoType = useRef<PhotoType | null>(null);
 
@@ -149,6 +152,7 @@ export function TripDetail() {
   const isFull = seatsLeft <= 0 || trip.status === 'full';
   const showExchange = trip.status === 'open' && isWithinTwoHours(trip.departureTime);
   const exchangePhotoCount = trip.exchangePhotos ? Object.keys(trip.exchangePhotos).length : 0;
+  const allExchangePhotos = trip.exchangePhotos ? Object.values(trip.exchangePhotos) : [];
   const isOngoing = trip.status === 'ongoing' || trip.status === 'completed';
 
   async function handleJoin() {
@@ -374,6 +378,7 @@ export function TripDetail() {
         }
       });
       await batch.commit();
+      console.log('tripCount incremented');
     } catch (err: unknown) {
       console.error(`Failed to update trip counts for trip ${tripId}:`, err);
     } finally {
@@ -428,10 +433,19 @@ export function TripDetail() {
             departureTime: trip.departureTime,
             waitingMinutes: trip.waitingMinutes,
           },
-          passengers: passengersList.map((p) => ({
-            firstName: p.fullName.split(' ')[0],
-            joinedAt: p.joinedAt,
-          })),
+          passengers: passengersList.map((p) => {
+            const pPhotos = allExchangePhotos.filter((photo) => photo.uploadedBy === p.uid);
+            return {
+              fullName: p.fullName,
+              joinedAt: p.joinedAt,
+              exchangePhotos: {
+                faceUrl: pPhotos.find((photo) => photo.type === 'face')?.url ?? null,
+                idUrl: pPhotos.find((photo) => photo.type === 'id')?.url ?? null,
+                plateUrl: pPhotos.find((photo) => photo.type === 'plate')?.url ?? null,
+              },
+              boardScanUrl: p.boardPhotoUrl ?? null,
+            };
+          }),
           exchangePhotos: {
             faceUrl: facePhoto?.url ?? null,
             idUrl: idPhoto?.url ?? null,
@@ -548,11 +562,25 @@ export function TripDetail() {
     cameraInputRef.current?.click();
   }
 
-  async function handleExchangePhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleExchangePhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     const type = pendingPhotoType.current;
-    if (!file || !type || !tripId || !firebaseUser) return;
+    if (!file || !type) return;
     e.target.value = '';
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewFile(file);
+    setPreviewType(type);
+    setPreviewObjectUrl(objectUrl);
+  }
+
+  async function handleConfirmUpload() {
+    if (!previewFile || !previewType || !tripId || !firebaseUser) return;
+    const file = previewFile;
+    const type = previewType;
+    if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    setPreviewFile(null);
+    setPreviewType(null);
+    setPreviewObjectUrl(null);
     setUploadingPhoto(type);
     try {
       await uploadExchangePhoto(file, tripId, firebaseUser.uid, type);
@@ -562,6 +590,18 @@ export function TripDetail() {
       toast({ title: 'Failed to upload photo', description: 'Please try again.', variant: 'destructive' });
     } finally {
       setUploadingPhoto(null);
+    }
+  }
+
+  function handleRetakePhoto() {
+    const type = previewType;
+    if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    setPreviewFile(null);
+    setPreviewType(null);
+    setPreviewObjectUrl(null);
+    if (type) {
+      pendingPhotoType.current = type;
+      cameraInputRef.current?.click();
     }
   }
 
@@ -706,19 +746,34 @@ export function TripDetail() {
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            {(['face', 'id', 'plate'] as PhotoType[]).map((type) => (
-              <button
-                key={type}
-                onClick={() => openCamera(type)}
-                disabled={uploadingPhoto === type}
-                className="flex flex-col items-center gap-1 bg-white border border-amber-200 rounded-xl p-3 text-xs text-amber-700 disabled:opacity-50"
-              >
-                <span className="text-2xl">
-                  {type === 'face' ? '🤳' : type === 'id' ? '🪪' : '🚗'}
-                </span>
-                {uploadingPhoto === type ? 'Saving…' : type === 'face' ? 'Face photo' : type === 'id' ? 'ID card' : 'Plate number'}
-              </button>
-            ))}
+            {(['face', 'id', 'plate'] as PhotoType[]).map((type) => {
+              const photoUrl = allExchangePhotos.find((p) => p.type === type && p.uploadedBy === firebaseUser?.uid)?.url ?? null;
+              if (photoUrl) {
+                return (
+                  <div key={type} style={{ position: 'relative', width: 80, height: 80 }}>
+                    <img src={photoUrl} alt={`${type} photo`} style={{ width: 80, height: 80, borderRadius: 8, objectFit: 'cover' }} />
+                    <div style={{
+                      position: 'absolute', inset: 0, background: 'rgba(0,180,0,0.35)',
+                      borderRadius: 8, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: 24,
+                    }}>✓</div>
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={type}
+                  onClick={() => openCamera(type)}
+                  disabled={uploadingPhoto === type}
+                  className="flex flex-col items-center gap-1 bg-white border border-amber-200 rounded-xl p-3 text-xs text-amber-700 disabled:opacity-50"
+                >
+                  <span className="text-2xl">
+                    {type === 'face' ? '🤳' : type === 'id' ? '🪪' : '🚗'}
+                  </span>
+                  {uploadingPhoto === type ? 'Saving…' : type === 'face' ? 'Face photo' : type === 'id' ? 'ID card' : 'Plate number'}
+                </button>
+              );
+            })}
           </div>
 
           {exchangePhotoCount > 0 && (
@@ -798,6 +853,30 @@ export function TripDetail() {
               </Button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Exchange photo preview modal */}
+      {previewObjectUrl && previewType && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-4 w-full max-w-xs space-y-4">
+            <p className="font-medium text-center text-gray-800">Confirm photo?</p>
+            <img src={previewObjectUrl} alt="Preview" className="w-full rounded-xl object-cover" style={{ maxHeight: 300 }} />
+            <div className="flex gap-3">
+              <button
+                onClick={handleRetakePhoto}
+                className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700"
+              >
+                Retake
+              </button>
+              <button
+                onClick={handleConfirmUpload}
+                className="flex-1 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

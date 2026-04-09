@@ -25,6 +25,15 @@ interface SafetyLinkData {
     destination: string;
     departureTime: { toDate: () => Date };
   };
+  passengers?: Array<{
+    fullName: string;
+    exchangePhotos?: {
+      faceUrl: string | null;
+      idUrl: string | null;
+      plateUrl: string | null;
+    } | null;
+    boardScanUrl?: string | null;
+  }>;
   exchangePhotos?: {
     faceUrl: string | null;
     idUrl: string | null;
@@ -139,23 +148,51 @@ export function SafetyCard() {
       </div>
 
       {/* Safety photos */}
-      {(data.exchangePhotos?.faceUrl || data.exchangePhotos?.idUrl || data.exchangePhotos?.plateUrl) && (
+      {(data.passengers?.some((p) => p.exchangePhotos?.faceUrl || p.exchangePhotos?.idUrl || p.exchangePhotos?.plateUrl || p.boardScanUrl) ||
+        (!data.passengers && (data.exchangePhotos?.faceUrl || data.exchangePhotos?.idUrl || data.exchangePhotos?.plateUrl))) && (
         <div className="border border-gray-200 rounded-xl p-4 mb-4 bg-white">
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Safety Photos</div>
+          <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Safety Verification Photos</div>
           <p className="text-xs text-gray-400 mb-3">
-            Shared by passenger for verification. Deleted 24 hours after trip.
+            Shared for trip safety. Deleted 24 hours after departure.
           </p>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            {data.exchangePhotos.faceUrl && (
-              <img src={data.exchangePhotos.faceUrl} alt="Face photo" style={{ width: 120, borderRadius: 8 }} />
-            )}
-            {data.exchangePhotos.idUrl && (
-              <img src={data.exchangePhotos.idUrl} alt="ID card" style={{ width: 120, borderRadius: 8 }} />
-            )}
-            {data.exchangePhotos.plateUrl && (
-              <img src={data.exchangePhotos.plateUrl} alt="Plate number" style={{ width: 120, borderRadius: 8 }} />
-            )}
-          </div>
+          {/* Per-passenger photos (new format) */}
+          {data.passengers && data.passengers.map((passenger, idx) => {
+            const hasPhotos = passenger.exchangePhotos?.faceUrl || passenger.exchangePhotos?.idUrl || passenger.exchangePhotos?.plateUrl || passenger.boardScanUrl;
+            if (!hasPhotos) return null;
+            return (
+              <div key={idx} style={{ marginBottom: 16 }}>
+                <strong style={{ fontSize: 14, color: '#1a1a1a' }}>{passenger.fullName}</strong>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                  {passenger.exchangePhotos?.faceUrl && (
+                    <img src={passenger.exchangePhotos.faceUrl} alt="Face" width={80} style={{ borderRadius: 8, objectFit: 'cover', height: 80 }} />
+                  )}
+                  {passenger.exchangePhotos?.idUrl && (
+                    <img src={passenger.exchangePhotos.idUrl} alt="ID" width={80} style={{ borderRadius: 8, objectFit: 'cover', height: 80 }} />
+                  )}
+                  {passenger.exchangePhotos?.plateUrl && (
+                    <img src={passenger.exchangePhotos.plateUrl} alt="Plate" width={80} style={{ borderRadius: 8, objectFit: 'cover', height: 80 }} />
+                  )}
+                  {passenger.boardScanUrl && (
+                    <img src={passenger.boardScanUrl} alt="Boarding scan" width={80} style={{ borderRadius: 8, objectFit: 'cover', height: 80 }} />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {/* Fallback for old safety cards without per-passenger structure */}
+          {!data.passengers && (
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              {data.exchangePhotos?.faceUrl && (
+                <img src={data.exchangePhotos.faceUrl} alt="Face photo" style={{ width: 120, borderRadius: 8 }} />
+              )}
+              {data.exchangePhotos?.idUrl && (
+                <img src={data.exchangePhotos.idUrl} alt="ID card" style={{ width: 120, borderRadius: 8 }} />
+              )}
+              {data.exchangePhotos?.plateUrl && (
+                <img src={data.exchangePhotos.plateUrl} alt="Plate number" style={{ width: 120, borderRadius: 8 }} />
+              )}
+            </div>
+          )}
         </div>
       )}
 
