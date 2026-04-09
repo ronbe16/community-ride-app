@@ -45,6 +45,7 @@ export function TripDetail() {
   const [completing, setCompleting] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState<PhotoType | null>(null);
+  const [scanPreviews, setScanPreviews] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
   const [isJoinedPassenger, setIsJoinedPassenger] = useState(false);
   const [driverMobile, setDriverMobile] = useState<string | null>(null);
@@ -409,7 +410,7 @@ export function TripDetail() {
       );
 
       // Always overwrite with latest data — no existence check
-      await setDoc(doc(db, 'safety_links', tripId), {
+      await setDoc(doc(db, 'safety_links', `${tripId}_${firebaseUser.uid}`), {
         type: 'trip_safety_card',
         generatedBy: firebaseUser.uid,
         tripId,
@@ -442,7 +443,7 @@ export function TripDetail() {
         createdAt: serverTimestamp(),
       }, { merge: false });
 
-      const shareUrl = `${window.location.origin}/safety/${tripId}`;
+      const shareUrl = `${window.location.origin}/safety/${tripId}_${firebaseUser.uid}`;
       const shareData = {
         title: 'Community Ride — Trip Safety Card',
         text: `Safety card for trip from ${trip.origin} to ${trip.destination}.`,
@@ -532,6 +533,7 @@ export function TripDetail() {
             boardPhotoUrl: url,
             boardPhotoUploadedAt: serverTimestamp(),
           });
+          setScanPreviews((prev) => ({ ...prev, [passenger.uid]: url }));
         }
         toast({ title: 'Photo saved' });
       } catch (err: unknown) {
@@ -806,14 +808,29 @@ export function TripDetail() {
                       Joined {p.joinedAt?.toDate ? formatDatetime(p.joinedAt as Timestamp) : '—'}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs shrink-0"
-                    onClick={() => handleScanPassenger(i)}
-                  >
-                    📷 Scan
-                  </Button>
+                  {(scanPreviews[p.uid] ?? p.boardPhotoUrl) ? (
+                    <div style={{ position: 'relative', width: 56, height: 56 }}>
+                      <img
+                        src={scanPreviews[p.uid] ?? p.boardPhotoUrl}
+                        alt="Board scan"
+                        style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }}
+                      />
+                      <div style={{
+                        position: 'absolute', inset: 0, background: 'rgba(0,180,0,0.35)',
+                        borderRadius: 8, display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', fontSize: 20,
+                      }}>✓</div>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs shrink-0"
+                      onClick={() => handleScanPassenger(i)}
+                    >
+                      📷 Scan
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
