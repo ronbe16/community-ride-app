@@ -150,7 +150,7 @@ export function TripDetail() {
     : isJoinedPassenger;
   const seatsLeft = trip.availableSeats - trip.filledSeats;
   const isFull = seatsLeft <= 0 || trip.status === 'full';
-  const showExchange = trip.status === 'open' && isWithinTwoHours(trip.departureTime);
+  const showExchange = (isDriver || isJoinedPassenger) && trip.status === 'open' && isWithinTwoHours(trip.departureTime);
   const exchangePhotoCount = trip.exchangePhotos ? Object.keys(trip.exchangePhotos).length : 0;
   const allExchangePhotos = trip.exchangePhotos ? Object.values(trip.exchangePhotos) : [];
   const isOngoing = trip.status === 'ongoing' || trip.status === 'completed';
