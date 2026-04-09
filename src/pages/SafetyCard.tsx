@@ -27,11 +27,9 @@ interface SafetyLinkData {
   };
   passengers?: Array<{
     fullName: string;
-    exchangePhotos?: {
-      faceUrl: string | null;
-      idUrl: string | null;
-      plateUrl: string | null;
-    } | null;
+    facePhotoUrl?: string | null;
+    idPhotoUrl?: string | null;
+    platePhotoUrl?: string | null;
     boardScanUrl?: string | null;
   }>;
   exchangePhotos?: {
@@ -148,7 +146,7 @@ export function SafetyCard() {
       </div>
 
       {/* Safety photos */}
-      {(data.passengers?.some((p) => p.exchangePhotos?.faceUrl || p.exchangePhotos?.idUrl || p.exchangePhotos?.plateUrl || p.boardScanUrl) ||
+      {(data.passengers?.some((p) => p.facePhotoUrl || p.idPhotoUrl || p.platePhotoUrl || p.boardScanUrl) ||
         (!data.passengers && (data.exchangePhotos?.faceUrl || data.exchangePhotos?.idUrl || data.exchangePhotos?.plateUrl))) && (
         <div className="border border-gray-200 rounded-xl p-4 mb-4 bg-white">
           <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Safety Verification Photos</div>
@@ -157,23 +155,35 @@ export function SafetyCard() {
           </p>
           {/* Per-passenger photos (new format) */}
           {data.passengers && data.passengers.map((passenger, idx) => {
-            const hasPhotos = passenger.exchangePhotos?.faceUrl || passenger.exchangePhotos?.idUrl || passenger.exchangePhotos?.plateUrl || passenger.boardScanUrl;
+            const hasPhotos = passenger.facePhotoUrl || passenger.idPhotoUrl || passenger.platePhotoUrl || passenger.boardScanUrl;
             if (!hasPhotos) return null;
             return (
-              <div key={idx} style={{ marginBottom: 16 }}>
-                <strong style={{ fontSize: 14, color: '#1a1a1a' }}>{passenger.fullName}</strong>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                  {passenger.exchangePhotos?.faceUrl && (
-                    <img src={passenger.exchangePhotos.faceUrl} alt="Face" width={80} style={{ borderRadius: 8, objectFit: 'cover', height: 80 }} />
+              <div key={idx} className="mb-4">
+                <div className="text-sm font-semibold text-gray-700 mb-2">{passenger.fullName}</div>
+                <div className="flex gap-3 flex-wrap">
+                  {passenger.facePhotoUrl && (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <img src={passenger.facePhotoUrl} className="w-16 h-16 object-cover rounded-lg" />
+                      <span className="text-xs text-gray-400">Face</span>
+                    </div>
                   )}
-                  {passenger.exchangePhotos?.idUrl && (
-                    <img src={passenger.exchangePhotos.idUrl} alt="ID" width={80} style={{ borderRadius: 8, objectFit: 'cover', height: 80 }} />
+                  {passenger.idPhotoUrl && (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <img src={passenger.idPhotoUrl} className="w-16 h-16 object-cover rounded-lg" />
+                      <span className="text-xs text-gray-400">ID</span>
+                    </div>
                   )}
-                  {passenger.exchangePhotos?.plateUrl && (
-                    <img src={passenger.exchangePhotos.plateUrl} alt="Plate" width={80} style={{ borderRadius: 8, objectFit: 'cover', height: 80 }} />
+                  {passenger.platePhotoUrl && (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <img src={passenger.platePhotoUrl} className="w-16 h-16 object-cover rounded-lg" />
+                      <span className="text-xs text-gray-400">Plate</span>
+                    </div>
                   )}
                   {passenger.boardScanUrl && (
-                    <img src={passenger.boardScanUrl} alt="Boarding scan" width={80} style={{ borderRadius: 8, objectFit: 'cover', height: 80 }} />
+                    <div className="flex flex-col items-center gap-0.5">
+                      <img src={passenger.boardScanUrl} className="w-16 h-16 object-cover rounded-lg" />
+                      <span className="text-xs text-gray-400">Boarding Scan</span>
+                    </div>
                   )}
                 </div>
               </div>
