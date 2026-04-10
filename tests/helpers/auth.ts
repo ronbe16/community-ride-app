@@ -7,7 +7,8 @@ export async function loginAs(page: Page, email: string, password: string) {
   await page.getByPlaceholder(/you@example/i).fill(email);
   await page.getByPlaceholder(/••••••••/).fill(password);
   await page.click('button[type="submit"]');
-  await page.waitForURL('/', { timeout: 15000 });
+  // Accept either / or /complete-profile as a successful login redirect
+  await page.waitForURL(/\/(complete-profile)?(\?.*)?$/, { timeout: 15000 });
 }
 
 export async function logout(page: Page) {
