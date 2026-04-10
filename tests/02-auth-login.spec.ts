@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, clearAuth } from './helpers/auth';
+import { wait } from './helpers/delay';
 
 test.describe('GROUP 2 — Auth: Login / Logout', () => {
   test.beforeEach(async ({ page }) => {
+    await wait(500);
     await clearAuth(page);
   });
 
