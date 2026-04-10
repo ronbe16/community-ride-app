@@ -111,9 +111,9 @@ export function Profile() {
 
   const trustSignal = userProfile
     ? userProfile.ratingCount > 0
-      ? `⭐ ${userProfile.rating.toFixed(1)} · ${userProfile.tripCount} trips`
-      : userProfile.tripCount > 0
-        ? `${userProfile.tripCount} trips`
+      ? `⭐ ${userProfile.rating.toFixed(1)} · ${userProfile.tripCount ?? 0} trip${(userProfile.tripCount ?? 0) === 1 ? '' : 's'}`
+      : (userProfile.tripCount ?? 0) > 0
+        ? `🚗 ${userProfile.tripCount} trip${userProfile.tripCount === 1 ? '' : 's'} completed`
         : 'New member'
     : '';
 
