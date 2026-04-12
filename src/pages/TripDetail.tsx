@@ -91,12 +91,12 @@ export function TripDetail() {
     return unsubPassengers;
   }, [tripId, trip, firebaseUser]);
 
-  // Subscribe to own passenger doc for non-drivers to detect joined status
+  // Subscribe to own passenger doc to detect joined status
   useEffect(() => {
-    if (!tripId || !firebaseUser || !trip || firebaseUser.uid === trip.driverUid) return;
+    if (!tripId || !firebaseUser?.uid) return;
 
     const passengerRef = doc(db, 'trips', tripId, 'passengers', firebaseUser.uid);
-    return onSnapshot(
+    const unsub = onSnapshot(
       passengerRef,
       (snap) => {
         setIsJoinedPassenger(snap.exists() && snap.data()?.status === 'confirmed');
@@ -107,8 +107,8 @@ export function TripDetail() {
         setBoardScanUrl(null);
       },
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripId, firebaseUser?.uid, trip?.driverUid]);
+    return () => unsub();
+  }, [tripId, firebaseUser?.uid]);
 
   // Fetch driver mobile number for confirmed passengers
   useEffect(() => {
