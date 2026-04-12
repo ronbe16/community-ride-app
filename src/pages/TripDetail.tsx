@@ -352,6 +352,7 @@ export function TripDetail() {
       await updateDoc(doc(db, 'trips', tripId), {
         status: 'completed',
         completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
       setShowCompletionModal(true);
     } catch (err: unknown) {
@@ -365,26 +366,13 @@ export function TripDetail() {
       return;
     }
 
-    // Secondary writes: increment trip counts — failures do not affect completion
+    // Secondary write: increment driver tripCount — non-blocking
     try {
-      const passengersSnap = await getDocs(
-        query(
-          collection(db, 'trips', tripId, 'passengers'),
-          where('status', '==', 'confirmed'),
-        ),
-      );
-      const batch = writeBatch(db);
-      batch.update(doc(db, 'users', firebaseUser.uid), { tripCount: increment(1) });
-      passengersSnap.docs.forEach((passengerDoc) => {
-        const passengerData = passengerDoc.data();
-        if (passengerData.uid) {
-          batch.update(doc(db, 'users', passengerData.uid), { tripCount: increment(1) });
-        }
+      await updateDoc(doc(db, 'users', firebaseUser.uid), {
+        tripCount: increment(1),
       });
-      await batch.commit();
-      console.log('tripCount incremented');
     } catch (err: unknown) {
-      console.error(`Failed to update trip counts for trip ${tripId}:`, err);
+      console.error(`Failed to increment tripCount for driver ${firebaseUser.uid} on trip ${tripId}:`, err);
     } finally {
       setCompleting(false);
     }

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { APP_VERSION } from '@/lib/version';
 
 export function Profile() {
   const { firebaseUser, userProfile } = useAuth();
@@ -278,6 +279,10 @@ export function Profile() {
       >
         Sign out
       </Button>
+
+      <p className="text-xs text-gray-400 text-center pt-4 pb-8">
+        Community Ride v{APP_VERSION}
+      </p>
     </div>
   );
 }

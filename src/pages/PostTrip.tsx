@@ -154,6 +154,9 @@ export function PostTrip() {
         tripType,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        deleteAt: Timestamp.fromDate(
+          new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+        ),
       });
 
       // Notify passengers topic — processed by a scheduled Firebase Function
