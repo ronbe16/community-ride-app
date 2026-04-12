@@ -372,7 +372,7 @@ export function TripDetail() {
         tripCount: increment(1),
       });
     } catch (err: unknown) {
-      console.error(`Failed to increment tripCount for driver ${firebaseUser.uid} on trip ${tripId}:`, err);
+      console.error('tripCount increment failed:', err);
     } finally {
       setCompleting(false);
     }
