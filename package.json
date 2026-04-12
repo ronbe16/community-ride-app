@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:regression:1.0.1": "playwright test tests/regression-patch-1.0.1.spec.ts --workers=1",
+    "test:regression:1.0.1:ui": "playwright test tests/regression-patch-1.0.1.spec.ts --ui"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
