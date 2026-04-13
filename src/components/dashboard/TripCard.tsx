@@ -7,7 +7,7 @@ interface TripCardProps {
     driverName: string;
     driverRating?: number;
     driverTripCount?: number;
-    vehicle: { color: string; make: string; model: string; plateLastThree: string };
+    vehicle: { color: string; make: string; model: string; plateLastThree: string; ltfrbPermitNumber?: string | null };
     origin: string;
     destination: string;
     departureTime: string;
@@ -26,8 +26,13 @@ export function TripCard({ trip, alreadyJoined = false, hasOngoingRide = false }
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-2">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-foreground font-medium text-sm">{trip.driverName}</span>
+        {trip.vehicle.ltfrbPermitNumber && (
+          <span className="inline-flex items-center gap-1 text-xs bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full px-2 py-0.5 font-medium">
+            🛡 LTFRB ✓
+          </span>
+        )}
         {trip.status === 'full' && (
           <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium shrink-0">
             Full — Ongoing

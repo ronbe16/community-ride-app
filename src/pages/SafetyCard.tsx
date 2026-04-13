@@ -129,6 +129,11 @@ export function SafetyCard() {
         <div className="text-gray-600">
           Plate: <span className="font-mono font-bold">{data.driver.vehicle.plateNumber}</span>
         </div>
+        {data.driver.vehicle.ltfrbPermitNumber && (
+          <div className="text-xs text-emerald-700 mt-1">
+            🛡 LTFRB Permit: {data.driver.vehicle.ltfrbPermitNumber}
+          </div>
+        )}
       </div>
 
       {/* Trip info */}

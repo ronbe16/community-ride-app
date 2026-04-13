@@ -65,6 +65,11 @@ export function PostTrip() {
     );
   }
 
+  const currentYear = new Date().getFullYear();
+  const driverVehicleOverAge =
+    userProfile.vehicle?.year !== undefined &&
+    currentYear - userProfile.vehicle.year > 5;
+
   const showOffPeakWarning =
     departureTime !== '' &&
     isDepartureOffPeak((() => {
@@ -182,6 +187,13 @@ export function PostTrip() {
   return (
     <div className="space-y-6 pt-4">
       <h1 className="text-foreground font-semibold text-xl">Post a trip</h1>
+
+      {driverVehicleOverAge && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+          ⚠️ Your vehicle may not meet the LTFRB 5-year age requirement for formal carpooling permits.
+          You can still post informal HOA trips.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Origin */}

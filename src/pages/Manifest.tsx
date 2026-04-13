@@ -13,6 +13,9 @@ interface ManifestPassenger {
 interface ManifestData {
   driver: {
     fullName: string;
+    mobileNumber?: string;
+    driverLicenseNumber?: string;
+    driverLicenseExpiry?: string;
     vehicle: {
       color: string;
       make: string;
@@ -20,6 +23,9 @@ interface ManifestData {
       year?: number;
       plateNumber: string;
       ltfrbPermitNumber?: string;
+      ltoRegistrationNumber?: string;
+      insuranceProvider?: string;
+      insuranceExpiry?: string;
     };
   };
   trip: {
@@ -108,11 +114,19 @@ export function Manifest() {
           <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Vehicle</p>
           <p className="font-semibold">
             {data.driver.vehicle.color} {data.driver.vehicle.make} {data.driver.vehicle.model}
-            {data.driver.vehicle.year ? ` ${data.driver.vehicle.year}` : ''}
+            {data.driver.vehicle.year ? ` (${data.driver.vehicle.year})` : ''}
           </p>
           <p>Plate: <span className="font-bold">{data.driver.vehicle.plateNumber}</span></p>
+          {data.driver.vehicle.ltoRegistrationNumber && (
+            <p>LTO OR/CR: {data.driver.vehicle.ltoRegistrationNumber}</p>
+          )}
+          {data.driver.vehicle.insuranceProvider && (
+            <p>Insurance: {data.driver.vehicle.insuranceProvider}
+              {data.driver.vehicle.insuranceExpiry && ` (expires ${data.driver.vehicle.insuranceExpiry})`}
+            </p>
+          )}
           {data.driver.vehicle.ltfrbPermitNumber && (
-            <p>LTFRB Permit: {data.driver.vehicle.ltfrbPermitNumber}</p>
+            <p>LTFRB Permit: <strong>{data.driver.vehicle.ltfrbPermitNumber}</strong></p>
           )}
         </div>
 
@@ -120,6 +134,14 @@ export function Manifest() {
         <div className="border-b border-gray-400 p-3">
           <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Driver</p>
           <p className="font-semibold">{data.driver.fullName}</p>
+          {data.driver.driverLicenseNumber && (
+            <p>License No.: {data.driver.driverLicenseNumber}
+              {data.driver.driverLicenseExpiry && ` (expires ${data.driver.driverLicenseExpiry})`}
+            </p>
+          )}
+          {data.driver.mobileNumber && (
+            <p>Mobile: {data.driver.mobileNumber}</p>
+          )}
         </div>
 
         {/* Route */}
@@ -158,6 +180,9 @@ export function Manifest() {
 
         {/* Footer */}
         <div className="p-3 text-center">
+          <p className="text-xs text-gray-600 mb-1">
+            All listed passengers are verified members of {communityName}.
+          </p>
           <p className="font-bold">{communityName}</p>
           <p className="text-xs text-gray-500">Community Ride · {communityName}</p>
         </div>

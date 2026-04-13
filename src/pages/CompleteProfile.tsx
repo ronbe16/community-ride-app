@@ -3,7 +3,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ninetyDaysFromNow } from '@/lib/retention';
-import { APP_NAME, CONSENT_VERSION } from '@/constants/app';
+import { APP_NAME, COMMUNITY_NAME, CONSENT_VERSION } from '@/constants/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,6 +48,8 @@ export function CompleteProfile() {
         tripCount: 0,
         rating: 0,
         ratingCount: 0,
+        isHoaMember: true,
+        communityName: COMMUNITY_NAME,
       });
       navigate('/');
     } catch (err: unknown) {
