@@ -422,6 +422,8 @@ export function TripDetail() {
         communityName: COMMUNITY_NAME,
         driver: {
           fullName: trip.driverName,
+          mobileNumber: userProfile?.mobileNumber ?? null,
+          tripCount: userProfile?.tripCount ?? 0,
           vehicle: trip.vehicle,
         },
         trip: {

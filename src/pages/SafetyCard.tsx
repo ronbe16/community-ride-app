@@ -8,6 +8,7 @@ interface SafetyLinkData {
   communityName: string;
   driver: {
     fullName: string;
+    mobileNumber?: string;
     tripCount: number;
     rating: number;
     ratingCount: number;
@@ -104,16 +105,19 @@ export function SafetyCard() {
       <div className="border border-gray-200 rounded-xl p-4 mb-4 bg-white">
         <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Driver</div>
         <div className="font-bold text-gray-900 text-lg">{data.driver.fullName}</div>
-        <div className="flex items-center gap-2 mt-1">
-          {data.driver.rating > 0 ? (
-            <span className="text-amber-500 text-sm font-medium">⭐ {data.driver.rating.toFixed(1)}</span>
-          ) : (
-            <span className="text-gray-400 text-sm">New member</span>
-          )}
-          {data.driver.tripCount > 0 && (
-            <span className="text-gray-400 text-sm">· {data.driver.tripCount} trips</span>
-          )}
+        <div className="text-gray-500 text-sm mt-1">
+          {(data.driver.tripCount ?? 0) > 0
+            ? `${data.driver.tripCount} trips completed`
+            : 'New member'}
         </div>
+        {data.driver.mobileNumber && (
+          <a
+            href={`tel:${data.driver.mobileNumber}`}
+            className="text-emerald-600 text-sm mt-1 block"
+          >
+            📞 {data.driver.mobileNumber}
+          </a>
+        )}
         {data.driver.vehicle.ltfrbPermitNumber && (
           <div className="text-blue-600 text-sm mt-1">✓ LTFRB Permit #{data.driver.vehicle.ltfrbPermitNumber}</div>
         )}
