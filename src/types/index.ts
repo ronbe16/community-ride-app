@@ -10,8 +10,13 @@ export interface Vehicle {
   year: number;
   plateNumber: string;
   color: string;
-  ltfrbPermitNumber?: string;
-  ltfrbQrPhotoUrl?: string;
+  ltfrbPermitNumber?: string | null;
+  ltfrbQrPhotoUrl?: string | null;
+  ltoRegistrationNumber?: string | null;
+  insuranceProvider?: string | null;
+  insuranceExpiry?: string | null;
+  driverLicenseNumber?: string | null;
+  driverLicenseExpiry?: string | null;
 }
 
 export interface ExchangePhoto {
@@ -42,6 +47,8 @@ export interface UserProfile {
   joinedTripIds?: string[];
   status?: 'pending' | 'approved' | 'rejected' | 'suspended';
   rejectionNote?: string;
+  isHoaMember?: boolean;
+  communityName?: string;
 }
 
 export interface Trip {

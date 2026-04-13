@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { APP_VERSION } from '@/constants/app';
+import { APP_VERSION, LTFRB_PERMIT_URL } from '@/constants/app';
 
 export function Profile() {
   const { firebaseUser, userProfile } = useAuth();
@@ -27,6 +27,11 @@ export function Profile() {
   const [plateNumber, setPlateNumber] = useState(userProfile?.vehicle?.plateNumber ?? '');
   const [vehicleColor, setVehicleColor] = useState(userProfile?.vehicle?.color ?? '');
   const [ltfrbPermitNumber, setLtfrbPermitNumber] = useState(userProfile?.vehicle?.ltfrbPermitNumber ?? '');
+  const [ltoRegistrationNumber, setLtoRegistrationNumber] = useState(userProfile?.vehicle?.ltoRegistrationNumber ?? '');
+  const [insuranceProvider, setInsuranceProvider] = useState(userProfile?.vehicle?.insuranceProvider ?? '');
+  const [insuranceExpiry, setInsuranceExpiry] = useState(userProfile?.vehicle?.insuranceExpiry ?? '');
+  const [driverLicenseNumber, setDriverLicenseNumber] = useState(userProfile?.vehicle?.driverLicenseNumber ?? '');
+  const [driverLicenseExpiry, setDriverLicenseExpiry] = useState(userProfile?.vehicle?.driverLicenseExpiry ?? '');
   const [uploadingQr, setUploadingQr] = useState(false);
 
   // Sync vehicle fields when userProfile loads from Firestore
@@ -39,6 +44,11 @@ export function Profile() {
     setPlateNumber(userProfile.vehicle.plateNumber ?? '');
     setVehicleColor(userProfile.vehicle.color ?? '');
     setLtfrbPermitNumber(userProfile.vehicle.ltfrbPermitNumber ?? '');
+    setLtoRegistrationNumber(userProfile.vehicle.ltoRegistrationNumber ?? '');
+    setInsuranceProvider(userProfile.vehicle.insuranceProvider ?? '');
+    setInsuranceExpiry(userProfile.vehicle.insuranceExpiry ?? '');
+    setDriverLicenseNumber(userProfile.vehicle.driverLicenseNumber ?? '');
+    setDriverLicenseExpiry(userProfile.vehicle.driverLicenseExpiry ?? '');
   }, [userProfile]);
 
   async function handleSaveProfile(e: React.FormEvent) {
@@ -79,6 +89,11 @@ export function Profile() {
           color: vehicleColor.trim(),
           ltfrbPermitNumber: ltfrbPermitNumber.trim() || null,
           ltfrbQrPhotoUrl: userProfile?.vehicle?.ltfrbQrPhotoUrl ?? null,
+          ltoRegistrationNumber: ltoRegistrationNumber.trim() || null,
+          insuranceProvider: insuranceProvider.trim() || null,
+          insuranceExpiry: insuranceExpiry.trim() || null,
+          driverLicenseNumber: driverLicenseNumber.trim() || null,
+          driverLicenseExpiry: driverLicenseExpiry.trim() || null,
         },
         updatedAt: serverTimestamp(),
       });
@@ -203,6 +218,13 @@ export function Profile() {
             onChange={(e) => setVehicleYear(e.target.value)}
             placeholder={String(new Date().getFullYear())}
           />
+          {vehicleYear && new Date().getFullYear() - Number(vehicleYear) > 5 && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1">
+              ⚠️ LTFRB draft guidelines require carpool vehicles to be 5 years old or newer
+              ({new Date().getFullYear() - 5} or later). Your vehicle ({vehicleYear}) may not qualify
+              for the official carpooling permit. You can still use Community Ride for informal HOA carpools.
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -225,44 +247,127 @@ export function Profile() {
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="ltfrbPermit">LTFRB Permit number (optional)</Label>
-          <Input
-            id="ltfrbPermit"
-            value={ltfrbPermitNumber}
-            onChange={(e) => setLtfrbPermitNumber(e.target.value)}
-            placeholder="Enter permit number"
-          />
-        </div>
-
-        {userProfile?.vehicle && (
-          <div className="space-y-1.5">
-            <Label>LTFRB QR sticker photo</Label>
-            {userProfile.vehicle.ltfrbQrPhotoUrl && (
-              <img
-                src={userProfile.vehicle.ltfrbQrPhotoUrl}
-                alt="LTFRB QR sticker"
-                className="w-32 h-32 object-cover rounded-lg border border-border"
-              />
-            )}
-            <input
-              ref={ltfrbInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleQrUpload}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full rounded-xl"
-              disabled={uploadingQr}
-              onClick={() => ltfrbInputRef.current?.click()}
-            >
-              {uploadingQr ? 'Uploading…' : userProfile.vehicle.ltfrbQrPhotoUrl ? 'Replace QR photo' : 'Upload QR sticker photo'}
-            </Button>
+        {/* LTFRB Compliance Documents sub-section */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-amber-900">🪪 LTFRB Compliance Documents</h3>
+            <p className="text-xs text-amber-700 mt-1">
+              Ang mga dokumentong ito ay ginagamit para sa LTFRB carpooling compliance.
+              Hindi kailangan ngayon, pero kapag lumabas na ang opisyal na circular,
+              maaaring maging required ang ilan sa mga ito.
+            </p>
           </div>
-        )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="ltfrbPermit" className="text-amber-900">LTFRB Permit Number</Label>
+            <Input
+              id="ltfrbPermit"
+              value={ltfrbPermitNumber}
+              onChange={(e) => setLtfrbPermitNumber(e.target.value)}
+              placeholder="Enter permit number"
+              className="bg-white"
+            />
+          </div>
+
+          {userProfile?.vehicle && (
+            <div className="space-y-1.5">
+              <Label className="text-amber-900">LTFRB QR Code Photo</Label>
+              {userProfile.vehicle.ltfrbQrPhotoUrl && (
+                <img
+                  src={userProfile.vehicle.ltfrbQrPhotoUrl}
+                  alt="LTFRB QR sticker"
+                  className="w-32 h-32 object-cover rounded-lg border border-border"
+                />
+              )}
+              <input
+                ref={ltfrbInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleQrUpload}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full rounded-xl bg-white"
+                disabled={uploadingQr}
+                onClick={() => ltfrbInputRef.current?.click()}
+              >
+                {uploadingQr ? 'Uploading…' : userProfile.vehicle.ltfrbQrPhotoUrl ? 'Replace QR photo' : 'Upload QR sticker photo'}
+              </Button>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="ltoReg" className="text-amber-900">LTO Registration Number (OR/CR)</Label>
+            <Input
+              id="ltoReg"
+              value={ltoRegistrationNumber}
+              onChange={(e) => setLtoRegistrationNumber(e.target.value)}
+              placeholder="e.g. 12345678"
+              className="bg-white"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="insuranceProvider" className="text-amber-900">Insurance Provider</Label>
+            <Input
+              id="insuranceProvider"
+              value={insuranceProvider}
+              onChange={(e) => setInsuranceProvider(e.target.value)}
+              placeholder='e.g. "Malayan Insurance"'
+              className="bg-white"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="insuranceExpiry" className="text-amber-900">Insurance Expiry</Label>
+            <Input
+              id="insuranceExpiry"
+              type="date"
+              value={insuranceExpiry}
+              onChange={(e) => setInsuranceExpiry(e.target.value)}
+              className="bg-white"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="driverLicenseNumber" className="text-amber-900">Driver's License Number</Label>
+            <Input
+              id="driverLicenseNumber"
+              value={driverLicenseNumber}
+              onChange={(e) => setDriverLicenseNumber(e.target.value)}
+              placeholder="LTO license number"
+              className="bg-white"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="driverLicenseExpiry" className="text-amber-900">Driver's License Expiry</Label>
+            <Input
+              id="driverLicenseExpiry"
+              type="date"
+              value={driverLicenseExpiry}
+              onChange={(e) => setDriverLicenseExpiry(e.target.value)}
+              className="bg-white"
+            />
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-amber-200">
+            <a
+              href={LTFRB_PERMIT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-emerald-600 underline"
+            >
+              Apply for LTFRB Carpooling Permit →
+            </a>
+            <p className="text-xs text-amber-600 mt-1">
+              Official application portal is pending publication of the LTFRB circular.
+              Link will be updated when available.
+            </p>
+          </div>
+        </div>
 
         <Button type="submit" className="w-full rounded-xl" disabled={saving}>
           {saving ? 'Saving…' : 'Save vehicle info'}

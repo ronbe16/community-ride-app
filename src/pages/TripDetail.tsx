@@ -315,8 +315,22 @@ export function TripDetail() {
       setDoc(doc(db, 'manifests', tripId), {
         generatedBy: firebaseUser.uid,
         driver: {
-          fullName: trip.driverName,
-          vehicle: trip.vehicle,
+          fullName: userProfile?.fullName ?? trip.driverName,
+          mobileNumber: userProfile?.mobileNumber ?? null,
+          driverLicenseNumber: userProfile?.vehicle?.driverLicenseNumber ?? null,
+          driverLicenseExpiry: userProfile?.vehicle?.driverLicenseExpiry ?? null,
+          vehicle: {
+            make: trip.vehicle.make,
+            model: trip.vehicle.model,
+            year: userProfile?.vehicle?.year ?? null,
+            color: trip.vehicle.color,
+            plateNumber: trip.vehicle.plateNumber,
+            ltfrbPermitNumber: userProfile?.vehicle?.ltfrbPermitNumber ?? null,
+            ltoRegistrationNumber: userProfile?.vehicle?.ltoRegistrationNumber ?? null,
+            insuranceProvider: userProfile?.vehicle?.insuranceProvider ?? null,
+            insuranceExpiry: userProfile?.vehicle?.insuranceExpiry ?? null,
+            ltfrbQrPhotoUrl: userProfile?.vehicle?.ltfrbQrPhotoUrl ?? null,
+          },
         },
         trip: {
           origin: trip.origin,
