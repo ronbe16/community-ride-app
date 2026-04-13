@@ -1,40 +1,110 @@
+// Community Ride — Firestore Security Rules
+// Version: 1.0.4 (April 2026)
+//
+// HOW TO USE:
+// 1. Go to Firebase Console → Firestore Database → Rules tab
+// 2. Delete everything in the editor
+// 3. Copy and paste the entire contents of this file
+// 4. Click "Publish"
+//
+// These rules are the canonical version as of Addendum E + Patch 1.0.4.
+// Update this file and re-publish after any rule changes.
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // User profiles
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── Community config (read-only for all signed-in users) ─────────────────
+
+    match /community/config {
+      allow read: if isSignedIn();
+      allow write: if false; // Managed manually in Firebase Console
+    }
+
+    // ── User profiles ─────────────────────────────────────────────────────────
+    // Any signed-in user can read any profile (needed for trip card display)
+    // Only the owner can create or update their own profile
+    // tripCount is client-incremented on trip completion — protected by owner check
+
     match /users/{userId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
-      allow delete: if false; // retention handled server-side
+      allow delete: if false;
     }
 
-    // Trips — Addendum B: all authenticated users are immediately active
+    // ── Trips ─────────────────────────────────────────────────────────────────
+    // Any signed-in user can read trips (trip board)
+    // Only the trip's driver can delete their own trip
+    // Any signed-in user can update a trip (needed for filledSeats, status changes by passengers)
+
     match /trips/{tripId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null &&
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
         request.resource.data.driverUid == request.auth.uid;
-      allow update, delete: if request.auth != null &&
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn() &&
         resource.data.driverUid == request.auth.uid;
-
-      match /passengers/{passengerId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null &&
-          isOwner(passengerId);
-        allow update, delete: if request.auth != null &&
-          (isOwner(passengerId) || resource.data.driverUid == request.auth.uid);
-      }
     }
 
-    // Pending notifications — write-only for authenticated users (read/delete handled server-side)
-    match /pending_notifications/{notifId} {
-      allow create: if request.auth != null;
-      allow read, update, delete: if false;
+    // ── Passenger subcollection ───────────────────────────────────────────────
+    // Any signed-in user can read passengers (needed for trip detail view)
+    // Any signed-in user can join (create their own passenger doc)
+    // A passenger can update their own doc; the trip's driver can also update (for boarding scan)
+
+    match /trips/{tripId}/passengers/{passengerId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() &&
+        (request.auth.uid == passengerId ||
+         get(/databases/$(database)/documents/trips/$(tripId)).data.driverUid == request.auth.uid);
+      allow delete: if isSignedIn() &&
+        (request.auth.uid == passengerId ||
+         get(/databases/$(database)/documents/trips/$(tripId)).data.driverUid == request.auth.uid);
     }
+
+    // ── Pending notifications (internal use) ──────────────────────────────────
+
+    match /pending_notifications/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // ── Manifests (LTFRB compliance — public read) ────────────────────────────
+    // Public read — traffic enforcers and family members view without login
+    // Only the generator can create or update their own manifest doc
+
+    match /manifests/{manifestId} {
+      allow read: if true;
+      allow create: if isSignedIn() &&
+        request.resource.data.generatedBy == request.auth.uid;
+      allow update: if isSignedIn() &&
+        resource.data.generatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ── Safety links (public read) ────────────────────────────────────────────
+    // Public read — family members view without login
+    // Keyed by {tripId}_{uid} — each participant owns their own doc
+    // Only the generator can create or update their own safety link
+
+    match /safety_links/{linkId} {
+      allow read: if true;
+      allow create: if isSignedIn() &&
+        request.resource.data.generatedBy == request.auth.uid;
+      allow update: if isSignedIn() &&
+        resource.data.generatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
   }
 }
