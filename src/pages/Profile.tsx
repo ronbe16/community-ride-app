@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { APP_VERSION } from '@/lib/version';
+import { APP_VERSION } from '@/constants/app';
 
 export function Profile() {
   const { firebaseUser, userProfile } = useAuth();

@@ -154,7 +154,7 @@ export function TripDetail() {
     : isJoinedPassenger;
   const seatsLeft = trip.availableSeats - trip.filledSeats;
   const isFull = seatsLeft <= 0 || trip.status === 'full';
-  const showExchange = isJoinedPassenger && trip.status === 'open' && isWithinTwoHours(trip.departureTime);
+  const showExchange = (trip.status === 'open' || trip.status === 'full') && isWithinTwoHours(trip.departureTime);
   const exchangePhotoCount = trip.exchangePhotos ? Object.keys(trip.exchangePhotos).length : 0;
   const allExchangePhotos = trip.exchangePhotos ? Object.values(trip.exchangePhotos) : [];
   const isOngoing = trip.status === 'ongoing' || trip.status === 'completed';
@@ -713,7 +713,7 @@ export function TripDetail() {
       )}
 
       {/* Optional safety photo exchange — shown when trip departs within 2 hours */}
-      {showExchange && (
+      {isJoinedPassenger && showExchange && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
           <div className="font-medium text-amber-800 mb-1">Optional safety exchange</div>
           <div className="text-amber-700 text-sm mb-3">
