@@ -54,6 +54,18 @@ export function Profile() {
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!firebaseUser) return;
+    if (!fullName.trim()) {
+      toast({ title: 'Full name is required.', variant: 'destructive' });
+      return;
+    }
+    if (!mobileNumber.trim()) {
+      toast({ title: 'Mobile number is required.', variant: 'destructive' });
+      return;
+    }
+    if (!homeAddress.trim()) {
+      toast({ title: 'Home address is required.', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
@@ -74,8 +86,24 @@ export function Profile() {
   async function handleSaveVehicle(e: React.FormEvent) {
     e.preventDefault();
     if (!firebaseUser) return;
-    if (!vehicleMake || !vehicleModel || !vehicleYear || !plateNumber || !vehicleColor) {
-      toast({ title: 'Please fill in all vehicle fields', variant: 'destructive' });
+    if (!vehicleMake.trim()) {
+      toast({ title: 'Vehicle make is required.', variant: 'destructive' });
+      return;
+    }
+    if (!vehicleModel.trim()) {
+      toast({ title: 'Vehicle model is required.', variant: 'destructive' });
+      return;
+    }
+    if (!vehicleYear.trim() || isNaN(Number(vehicleYear))) {
+      toast({ title: 'Vehicle year is required.', variant: 'destructive' });
+      return;
+    }
+    if (!plateNumber.trim()) {
+      toast({ title: 'Plate number is required.', variant: 'destructive' });
+      return;
+    }
+    if (!vehicleColor.trim()) {
+      toast({ title: 'Vehicle color is required.', variant: 'destructive' });
       return;
     }
     setSaving(true);
@@ -147,7 +175,7 @@ export function Profile() {
         <h2 className="text-foreground font-medium">Account</h2>
 
         <div className="space-y-1.5">
-          <Label htmlFor="fullName">Full name</Label>
+          <Label htmlFor="fullName">Full name <span className="text-red-500">*</span></Label>
           <Input
             id="fullName"
             value={fullName}
@@ -156,7 +184,7 @@ export function Profile() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="mobile">Mobile number</Label>
+          <Label htmlFor="mobile">Mobile number <span className="text-red-500">*</span></Label>
           <Input
             id="mobile"
             type="tel"
@@ -166,7 +194,7 @@ export function Profile() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="address">Home address</Label>
+          <Label htmlFor="address">Home address <span className="text-red-500">*</span></Label>
           <Input
             id="address"
             value={homeAddress}
@@ -190,7 +218,7 @@ export function Profile() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="vehicleMake">Make</Label>
+          <Label htmlFor="vehicleMake">Make <span className="text-red-500">*</span></Label>
           <Input
             id="vehicleMake"
             value={vehicleMake}
@@ -200,7 +228,7 @@ export function Profile() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="vehicleModel">Model</Label>
+          <Label htmlFor="vehicleModel">Model <span className="text-red-500">*</span></Label>
           <Input
             id="vehicleModel"
             value={vehicleModel}
@@ -210,7 +238,7 @@ export function Profile() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="vehicleYear">Year</Label>
+          <Label htmlFor="vehicleYear">Year <span className="text-red-500">*</span></Label>
           <Input
             id="vehicleYear"
             type="number"
@@ -228,7 +256,7 @@ export function Profile() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="plateNumber">Plate number</Label>
+          <Label htmlFor="plateNumber">Plate number <span className="text-red-500">*</span></Label>
           <Input
             id="plateNumber"
             value={plateNumber}
@@ -238,7 +266,7 @@ export function Profile() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="vehicleColor">Color</Label>
+          <Label htmlFor="vehicleColor">Color <span className="text-red-500">*</span></Label>
           <Input
             id="vehicleColor"
             value={vehicleColor}
@@ -386,7 +414,7 @@ export function Profile() {
       </Button>
 
       <p className="text-xs text-gray-400 text-center pt-4 pb-8">
-        Community Ride v{APP_VERSION}
+        Community Ride v1.0.4b
       </p>
     </div>
   );

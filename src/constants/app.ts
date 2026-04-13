@@ -23,6 +23,17 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: '1.0.3',
+    date: 'April 2026',
+    notes: [
+      'Trip count on profile now shows actual completed trips',
+      'Driver phone number now shown on the Safety Card',
+      'Driver trip count on Safety Card now reflects actual completed trips',
+      'Full name, mobile number, and home address are now required fields on profile',
+      'Vehicle details (make, model, year, plate, color) are now required before saving',
+    ],
+  },
+  {
     version: '1.0.2',
     date: 'April 2026',
     notes: [
