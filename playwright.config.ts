@@ -14,4 +14,7 @@ export default defineConfig({
     navigationTimeout: 20000,
   },
   reporter: [['list'], ['html', { open: 'never' }]],
+  env: {
+    VITE_FIREBASE_API_KEY: process.env.VITE_FIREBASE_API_KEY ?? '',
+  },
 });

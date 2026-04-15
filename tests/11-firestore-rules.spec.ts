@@ -10,7 +10,7 @@ import { wait } from './helpers/delay';
  * This avoids the browser ESM module resolution issue with dynamic import('firebase/firestore').
  */
 
-const FIREBASE_API_KEY = 'AIzaSyDMoaIf2RQK7TDhkmIVl935dfKGKD6KaPE';
+const FIREBASE_API_KEY = process.env.VITE_FIREBASE_API_KEY;
 const FIREBASE_PROJECT_ID = 'communityride-app';
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
 const IDENTITY_URL = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`;
