@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { ninetyDaysFromNow } from '@/lib/retention';
@@ -42,9 +43,9 @@ export function Signup() {
       } else {
         navigate('/');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Google sign-in failed:', err);
-      if (err.code === 'auth/account-exists-with-different-credential') {
+      if (err instanceof FirebaseError && err.code === 'auth/account-exists-with-different-credential') {
         setError('An account with this email already exists. Please sign in with your password.');
       } else {
         setError('Google sign-in failed. Please try again.');

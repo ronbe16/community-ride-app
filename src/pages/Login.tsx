@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { Download } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { doc, getDoc } from 'firebase/firestore';
@@ -33,11 +34,15 @@ export function Login() {
     try {
       await sendPasswordResetEmail(auth, resetEmail);
       setResetMessage('Check your email for a reset link.');
-    } catch (err: any) {
-      if (err.code === 'auth/user-not-found') {
-        setResetError('No account found with this email.');
-      } else if (err.code === 'auth/invalid-email') {
-        setResetError('Please enter a valid email address.');
+    } catch (err: unknown) {
+      if (err instanceof FirebaseError) {
+        if (err.code === 'auth/user-not-found') {
+          setResetError('No account found with this email.');
+        } else if (err.code === 'auth/invalid-email') {
+          setResetError('Please enter a valid email address.');
+        } else {
+          setResetError('Failed to send reset email. Please try again.');
+        }
       } else {
         setResetError('Failed to send reset email. Please try again.');
       }
@@ -53,9 +58,10 @@ export function Login() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof FirebaseError ? err.message : 'Failed to sign in';
       console.error('Email sign-in failed for', email, ':', err);
-      setError(err.message || 'Failed to sign in');
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -78,9 +84,9 @@ export function Login() {
       } else {
         navigate('/');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Google sign-in failed:', err);
-      if (err.code === 'auth/account-exists-with-different-credential') {
+      if (err instanceof FirebaseError && err.code === 'auth/account-exists-with-different-credential') {
         setError('An account already exists with this email. Please sign in with your password instead.');
       } else {
         setError('Google sign-in failed. Please try again.');
