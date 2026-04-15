@@ -2,6 +2,9 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 const BASE_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
 
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 export interface CloudinaryUploadResult {
   secure_url: string;
   public_id: string;
@@ -11,6 +14,13 @@ export async function uploadToCloudinary(
   file: File,
   folder: string,
 ): Promise<CloudinaryUploadResult> {
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    throw new Error(`Invalid file type "${file.type}". Only JPEG, PNG, WebP, and HEIC images are allowed.`);
+  }
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    throw new Error(`File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum size is 10 MB.`);
+  }
+
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', UPLOAD_PRESET);
