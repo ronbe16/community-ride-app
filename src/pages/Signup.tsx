@@ -58,6 +58,12 @@ export function Signup() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    const cleanMobile = mobile.trim().replace(/\D/g, '');
+    if (!/^9\d{9}$/.test(cleanMobile)) {
+      setError('Enter a valid 10-digit Philippine mobile number starting with 9 (e.g. 9171234567).');
+      setLoading(false);
+      return;
+    }
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
       try {
@@ -65,7 +71,7 @@ export function Signup() {
           uid: user.uid,
           fullName: fullName.trim(),
           email: email.trim(),
-          mobileNumber: '+63' + mobile.trim(),
+          mobileNumber: '+63' + cleanMobile,
           status: 'verified',
           consentVersion: CONSENT_VERSION,
           consentAcceptedAt: serverTimestamp(),

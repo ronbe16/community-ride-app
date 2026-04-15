@@ -31,13 +31,18 @@ export function CompleteProfile() {
     e.preventDefault();
     if (!state?.uid) return;
     setError('');
+    const cleanMobile = mobile.trim().replace(/\D/g, '');
+    if (!/^9\d{9}$/.test(cleanMobile)) {
+      setError('Enter a valid 10-digit Philippine mobile number starting with 9 (e.g. 9171234567).');
+      return;
+    }
     setLoading(true);
     try {
       await setDoc(doc(db, 'users', state.uid), {
         uid: state.uid,
         fullName: state.fullName,
         email: state.email,
-        mobileNumber: '+63' + mobile.trim(),
+        mobileNumber: '+63' + cleanMobile,
         status: 'verified',
         consentVersion: CONSENT_VERSION,
         consentAcceptedAt: serverTimestamp(),
