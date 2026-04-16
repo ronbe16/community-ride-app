@@ -124,9 +124,11 @@ export function TripDetail() {
     });
   }, [isJoinedPassenger, trip?.driverUid]);
 
-  // Auto-mark trip as departed when departure time passes
+  // Auto-mark trip as departed when departure time passes — driver only
   useEffect(() => {
     if (!trip || !tripId) return;
+    const isDriver = firebaseUser?.uid === trip.driverUid;
+    if (!isDriver) return;
     if (trip.status !== 'open' && trip.status !== 'full') return;
 
     const departureMs = trip.departureTime.toDate().getTime();
@@ -135,7 +137,7 @@ export function TripDetail() {
         console.error(`Failed to auto-mark trip ${tripId} as departed:`, err);
       });
     }
-  }, [trip, tripId]);
+  }, [trip, tripId, firebaseUser?.uid]);
 
   if (loading) {
     return (
