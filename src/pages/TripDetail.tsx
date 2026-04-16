@@ -12,6 +12,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Trip, PassengerEntry, PhotoType } from '@/types';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { COMMUNITY_NAME, SAFETY_LINK_EXPIRY_HOURS } from '@/constants/app';
 import { ninetyDaysFromNow } from '@/lib/retention';
@@ -920,61 +921,59 @@ export function TripDetail() {
       )}
 
       {/* Exchange photo preview modal */}
-      {previewObjectUrl && previewType && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-4 w-full max-w-xs space-y-4">
-            <p className="font-medium text-center text-gray-800">Confirm photo?</p>
+      <Dialog open={!!(previewObjectUrl && previewType)} onOpenChange={(open) => { if (!open) handleRetakePhoto(); }}>
+        <DialogContent className="max-w-xs p-4 space-y-4">
+          <DialogTitle className="font-medium text-center text-gray-800">Confirm photo?</DialogTitle>
+          {previewObjectUrl && (
             <img src={previewObjectUrl} alt="Preview" className="w-full rounded-xl object-cover" style={{ maxHeight: 300 }} />
-            <div className="flex gap-3">
-              <button
-                onClick={handleRetakePhoto}
-                className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700"
-              >
-                Retake
-              </button>
-              <button
-                onClick={handleConfirmUpload}
-                className="flex-1 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium"
-              >
-                Confirm
-              </button>
-            </div>
+          )}
+          <div className="flex gap-3">
+            <button
+              onClick={handleRetakePhoto}
+              className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700"
+            >
+              Retake
+            </button>
+            <button
+              onClick={handleConfirmUpload}
+              className="flex-1 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium"
+            >
+              Confirm
+            </button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Trip Completion Modal */}
-      {showCompletionModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end z-50">
-          <div className="bg-white w-full rounded-t-2xl p-6 space-y-4">
-            <div className="text-center">
-              <div className="text-4xl mb-2">🎉</div>
-              <h3 className="text-lg font-semibold text-gray-900">Trip completed!</h3>
-              <p className="text-gray-500 text-sm mt-1">
-                This trip has been logged for you and your passengers.
-              </p>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <p className="text-sm text-amber-800 font-medium">Safety reminder</p>
-              <p className="text-sm text-amber-700 mt-1">
-                Remind your passengers to let their loved ones know they've arrived safely.
-                <span className="italic"> "Pakisabi sa pamilya mo na nakarating ka na." 🙏</span>
-              </p>
-            </div>
-
-            <Button
-              className="w-full rounded-xl"
-              onClick={() => {
-                setShowCompletionModal(false);
-                navigate('/');
-              }}
-            >
-              Back to trips
-            </Button>
+      <Dialog open={showCompletionModal} onOpenChange={setShowCompletionModal}>
+        <DialogContent className="max-w-sm p-6 space-y-4">
+          <div className="text-center">
+            <div className="text-4xl mb-2">🎉</div>
+            <DialogTitle className="text-lg font-semibold text-gray-900">Trip completed!</DialogTitle>
+            <p className="text-gray-500 text-sm mt-1">
+              This trip has been logged for you and your passengers.
+            </p>
           </div>
-        </div>
-      )}
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <p className="text-sm text-amber-800 font-medium">Safety reminder</p>
+            <p className="text-sm text-amber-700 mt-1">
+              Remind your passengers to let their loved ones know they've arrived safely.
+              <span className="italic"> "Pakisabi sa pamilya mo na nakarating ka na." 🙏</span>
+            </p>
+          </div>
+
+          <Button
+            className="w-full rounded-xl"
+            onClick={() => {
+              setShowCompletionModal(false);
+              navigate('/');
+            }}
+          >
+            Back to trips
+          </Button>
+        </DialogContent>
+      </Dialog>
 
 
     </div>
