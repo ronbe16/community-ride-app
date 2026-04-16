@@ -15,10 +15,12 @@ import { PrivacyPage } from '@/pages/PrivacyPage';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { PwaInstallBanner } from '@/components/shared/PwaInstallBanner';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 
 export default function App() {
   return (
     <AuthProvider>
+      <ErrorBoundary>
       <BrowserRouter>
         <Toaster />
         <Sonner />
@@ -44,6 +46,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </ErrorBoundary>
     </AuthProvider>
   );
 }
