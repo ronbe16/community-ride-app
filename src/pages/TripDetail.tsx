@@ -368,11 +368,16 @@ export function TripDetail() {
     setCompleting(true);
 
     try {
-      await updateDoc(doc(db, 'trips', tripId), {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'trips', tripId), {
         status: 'completed',
         completedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      batch.update(doc(db, 'users', firebaseUser.uid), {
+        tripCount: increment(1),
+      });
+      await batch.commit();
       setShowCompletionModal(true);
     } catch (err: unknown) {
       console.error(`Failed to complete trip ${tripId}:`, err);
@@ -381,17 +386,6 @@ export function TripDetail() {
         description: 'Please try again.',
         variant: 'destructive',
       });
-      setCompleting(false);
-      return;
-    }
-
-    // Secondary write: increment driver tripCount — non-blocking
-    try {
-      await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        tripCount: increment(1),
-      });
-    } catch (err: unknown) {
-      console.error('tripCount increment failed:', err);
     } finally {
       setCompleting(false);
     }
