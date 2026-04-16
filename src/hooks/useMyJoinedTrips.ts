@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, documentId, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Trip } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,14 +35,18 @@ export function useMyJoinedTrips() {
         }
 
         try {
-          const tripDocs = await Promise.all(
-            joinedTripIds.map((id) => getDoc(doc(db, 'trips', id))),
+          const CHUNK_SIZE = 30;
+          const chunks: string[][] = [];
+          for (let i = 0; i < joinedTripIds.length; i += CHUNK_SIZE) {
+            chunks.push(joinedTripIds.slice(i, i + CHUNK_SIZE));
+          }
+          const snapshots = await Promise.all(
+            chunks.map((chunk) =>
+              getDocs(query(collection(db, 'trips'), where(documentId(), 'in', chunk)))
+            )
           );
-          setTrips(
-            tripDocs
-              .filter((d) => d.exists())
-              .map((d) => ({ id: d.id, ...d.data() } as Trip)),
-          );
+          const tripDocs = snapshots.flatMap((snap) => snap.docs);
+          setTrips(tripDocs.filter((d) => d.exists()).map((d) => ({ id: d.id, ...d.data() } as Trip)));
         } catch (err) {
           console.error(`Failed to fetch joined trips for user ${firebaseUser.uid}:`, err);
         } finally {
