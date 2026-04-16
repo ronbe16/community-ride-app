@@ -104,7 +104,8 @@ export function TripDetail() {
         setIsJoinedPassenger(snap.exists() && snap.data()?.status === 'confirmed');
         setBoardScanUrl(snap.exists() ? (snap.data()?.boardPhotoUrl as string | null) ?? null : null);
       },
-      (_err) => {
+      (err: unknown) => {
+        console.error(`Failed to subscribe to passenger join status for trip ${tripId}:`, err);
         setIsJoinedPassenger(false);
         setBoardScanUrl(null);
       },
@@ -219,15 +220,14 @@ export function TripDetail() {
           joinedAt: serverTimestamp(),
           deleteAt: ninetyDaysFromNow(),
         });
+
+        transaction.update(doc(db, 'users', firebaseUser.uid), {
+          joinedTripIds: arrayUnion(tripId),
+        });
       });
 
-      await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        joinedTripIds: arrayUnion(tripId),
-      });
-
-      // Notify driver — secondary write, failures must not surface as join failure (Fix 2)
-      try {
-        const driverDoc = await getDoc(doc(db, 'users', trip.driverUid));
+      // Notify driver — fire-and-forget so join UI is unblocked immediately
+      getDoc(doc(db, 'users', trip.driverUid)).then((driverDoc) => {
         if (driverDoc.exists() && driverDoc.data().fcmToken) {
           addDoc(collection(db, 'pending_notifications'), {
             token: driverDoc.data().fcmToken,
@@ -239,9 +239,9 @@ export function TripDetail() {
             console.error('Failed to queue join notification:', err);
           });
         }
-      } catch (err: unknown) {
+      }).catch((err: unknown) => {
         console.error(`Failed to fetch driver doc for join notification (trip ${tripId}):`, err);
-      }
+      });
 
       toast({ title: "You're in!", description: `You've joined the trip to ${trip.destination}.` });
     } catch (err: unknown) {
@@ -255,6 +255,7 @@ export function TripDetail() {
 
   async function handleCancelSeat() {
     if (!firebaseUser || !tripId) return;
+    if (trip?.status === 'cancelled' || trip?.status === 'completed') return;
     setActionLoading(true);
     try {
       const tripRef = doc(db, 'trips', tripId);
@@ -312,46 +313,53 @@ export function TripDetail() {
         updatedAt: serverTimestamp(),
       });
 
-      // Background manifest write — keyed by tripId, fire and forget
       const expiresAt = Timestamp.fromMillis(
         Date.now() + SAFETY_LINK_EXPIRY_HOURS * 60 * 60 * 1000,
       );
-      setDoc(doc(db, 'manifests', tripId), {
-        generatedBy: firebaseUser.uid,
-        driver: {
-          fullName: userProfile?.fullName ?? trip.driverName,
-          mobileNumber: userProfile?.mobileNumber ?? null,
-          driverLicenseNumber: userProfile?.vehicle?.driverLicenseNumber ?? null,
-          driverLicenseExpiry: userProfile?.vehicle?.driverLicenseExpiry ?? null,
-          vehicle: {
-            make: trip.vehicle.make,
-            model: trip.vehicle.model,
-            year: userProfile?.vehicle?.year ?? null,
-            color: trip.vehicle.color,
-            plateNumber: trip.vehicle.plateNumber,
-            ltfrbPermitNumber: userProfile?.vehicle?.ltfrbPermitNumber ?? null,
-            ltoRegistrationNumber: userProfile?.vehicle?.ltoRegistrationNumber ?? null,
-            insuranceProvider: userProfile?.vehicle?.insuranceProvider ?? null,
-            insuranceExpiry: userProfile?.vehicle?.insuranceExpiry ?? null,
-            ltfrbQrPhotoUrl: userProfile?.vehicle?.ltfrbQrPhotoUrl ?? null,
+      try {
+        await setDoc(doc(db, 'manifests', tripId), {
+          generatedBy: firebaseUser.uid,
+          driver: {
+            fullName: userProfile?.fullName ?? trip.driverName,
+            mobileNumber: userProfile?.mobileNumber ?? null,
+            driverLicenseNumber: userProfile?.vehicle?.driverLicenseNumber ?? null,
+            driverLicenseExpiry: userProfile?.vehicle?.driverLicenseExpiry ?? null,
+            vehicle: {
+              make: trip.vehicle.make,
+              model: trip.vehicle.model,
+              year: userProfile?.vehicle?.year ?? null,
+              color: trip.vehicle.color,
+              plateNumber: trip.vehicle.plateNumber,
+              ltfrbPermitNumber: userProfile?.vehicle?.ltfrbPermitNumber ?? null,
+              ltoRegistrationNumber: userProfile?.vehicle?.ltoRegistrationNumber ?? null,
+              insuranceProvider: userProfile?.vehicle?.insuranceProvider ?? null,
+              insuranceExpiry: userProfile?.vehicle?.insuranceExpiry ?? null,
+              ltfrbQrPhotoUrl: userProfile?.vehicle?.ltfrbQrPhotoUrl ?? null,
+            },
           },
-        },
-        trip: {
-          origin: trip.origin,
-          destination: trip.destination,
-          departureTime: trip.departureTime,
-        },
-        passengers: confirmedPassengers.map((p) => ({
-          fullName: p.fullName,
-          mobileNumber: p.mobileNumber,
-          joinedAt: p.joinedAt,
-        })),
-        communityName: COMMUNITY_NAME,
-        generatedAt: serverTimestamp(),
-        expiresAt,
-      }).catch((err: unknown) => {
+          trip: {
+            origin: trip.origin,
+            destination: trip.destination,
+            departureTime: trip.departureTime,
+          },
+          passengers: confirmedPassengers.map((p) => ({
+            fullName: p.fullName,
+            mobileNumber: p.mobileNumber,
+            joinedAt: p.joinedAt,
+          })),
+          communityName: COMMUNITY_NAME,
+          generatedAt: serverTimestamp(),
+          expiresAt,
+          deleteAt: ninetyDaysFromNow(),
+        });
+      } catch (err: unknown) {
         console.error(`Failed to generate manifest for trip ${tripId}:`, err);
-      });
+        toast({
+          title: 'Manifest not generated',
+          description: 'Trip is started, but the passenger manifest could not be saved. Please try sharing it again.',
+          variant: 'destructive',
+        });
+      }
 
       toast({ title: 'Trip started!' });
     } catch (err: unknown) {
@@ -367,11 +375,16 @@ export function TripDetail() {
     setCompleting(true);
 
     try {
-      await updateDoc(doc(db, 'trips', tripId), {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'trips', tripId), {
         status: 'completed',
         completedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      batch.update(doc(db, 'users', firebaseUser.uid), {
+        tripCount: increment(1),
+      });
+      await batch.commit();
       setShowCompletionModal(true);
     } catch (err: unknown) {
       console.error(`Failed to complete trip ${tripId}:`, err);
@@ -380,17 +393,6 @@ export function TripDetail() {
         description: 'Please try again.',
         variant: 'destructive',
       });
-      setCompleting(false);
-      return;
-    }
-
-    // Secondary write: increment driver tripCount — non-blocking
-    try {
-      await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        tripCount: increment(1),
-      });
-    } catch (err: unknown) {
-      console.error('tripCount increment failed:', err);
     } finally {
       setCompleting(false);
     }
@@ -426,8 +428,8 @@ export function TripDetail() {
         communityName: COMMUNITY_NAME,
         driver: {
           fullName: trip.driverName,
-          mobileNumber: userProfile?.mobileNumber ?? null,
-          tripCount: userProfile?.tripCount ?? 0,
+          mobileNumber: isDriver ? (userProfile?.mobileNumber ?? null) : (driverMobile ?? null),
+          tripCount: trip.driverTripCount ?? 0,
           vehicle: trip.vehicle,
         },
         trip: {
@@ -503,28 +505,32 @@ export function TripDetail() {
         status: 'cancelled',
         updatedAt: serverTimestamp(),
       });
-      for (const p of confirmedPassengers) {
-        // Remove this trip from passenger's joinedTripIds
+      await Promise.all(confirmedPassengers.map(async (p) => {
+        // Fire-and-forget: remove trip from passenger's joinedTripIds
         updateDoc(doc(db, 'users', p.uid), {
           joinedTripIds: arrayRemove(tripId),
         }).catch((err: unknown) => {
           console.error(`Failed to remove cancelled trip ${tripId} from passenger ${p.uid} joinedTripIds:`, err);
         });
 
-        // Notify passenger via FCM
-        const pDoc = await getDoc(doc(db, 'users', p.uid));
-        if (pDoc.exists() && pDoc.data().fcmToken) {
-          addDoc(collection(db, 'pending_notifications'), {
-            token: pDoc.data().fcmToken,
-            title: 'Trip cancelled',
-            body: `Your trip to ${trip.destination} has been cancelled by the driver.`,
-            createdAt: serverTimestamp(),
-            deleteAt: ninetyDaysFromNow(),
-          }).catch((err: unknown) => {
-            console.error(`Failed to queue cancellation notification for passenger ${p.uid}:`, err);
-          });
+        // Fetch token and notify in the same async chain
+        try {
+          const pDoc = await getDoc(doc(db, 'users', p.uid));
+          if (pDoc.exists() && pDoc.data().fcmToken) {
+            addDoc(collection(db, 'pending_notifications'), {
+              token: pDoc.data().fcmToken,
+              title: 'Trip cancelled',
+              body: `Your trip to ${trip.destination} has been cancelled by the driver.`,
+              createdAt: serverTimestamp(),
+              deleteAt: ninetyDaysFromNow(),
+            }).catch((err: unknown) => {
+              console.error(`Failed to queue cancellation notification for passenger ${p.uid}:`, err);
+            });
+          }
+        } catch (err: unknown) {
+          console.error(`Failed to fetch user doc for cancellation notification (passenger ${p.uid}):`, err);
         }
-      }
+      }));
       toast({ title: 'Trip cancelled' });
       navigate('/');
     } catch (err: unknown) {
@@ -768,6 +774,8 @@ export function TripDetail() {
               return (
                 <button
                   key={type}
+                  type="button"
+                  aria-label={`Take ${type === 'face' ? 'face' : type === 'id' ? 'ID card' : 'license plate'} photo`}
                   onClick={() => openCamera(type)}
                   disabled={uploadingPhoto === type}
                   className="flex flex-col items-center gap-1 bg-white border border-amber-200 rounded-xl p-3 text-xs text-amber-700 disabled:opacity-50"
@@ -788,7 +796,7 @@ export function TripDetail() {
                 Driver's boarding scan of you
               </div>
               <div className="relative w-14 h-14">
-                <img src={boardScanUrl} className="w-14 h-14 object-cover rounded-lg" />
+                <img src={boardScanUrl} alt="Driver's boarding scan of you" className="w-14 h-14 object-cover rounded-lg" />
               </div>
             </div>
           )}
@@ -875,19 +883,19 @@ export function TripDetail() {
                         <div className="flex gap-2">
                           {facePhotoUrl && (
                             <div className="flex flex-col items-center gap-0.5">
-                              <img src={facePhotoUrl} className="w-12 h-12 object-cover rounded-lg" />
+                              <img src={facePhotoUrl} alt={`Face photo taken by ${p.fullName}`} className="w-12 h-12 object-cover rounded-lg" />
                               <span className="text-xs text-gray-400">Face</span>
                             </div>
                           )}
                           {idPhotoUrl && (
                             <div className="flex flex-col items-center gap-0.5">
-                              <img src={idPhotoUrl} className="w-12 h-12 object-cover rounded-lg" />
+                              <img src={idPhotoUrl} alt={`ID photo taken by ${p.fullName}`} className="w-12 h-12 object-cover rounded-lg" />
                               <span className="text-xs text-gray-400">ID</span>
                             </div>
                           )}
                           {platePhotoUrl && (
                             <div className="flex flex-col items-center gap-0.5">
-                              <img src={platePhotoUrl} className="w-12 h-12 object-cover rounded-lg" />
+                              <img src={platePhotoUrl} alt={`Plate photo taken by ${p.fullName}`} className="w-12 h-12 object-cover rounded-lg" />
                               <span className="text-xs text-gray-400">Plate</span>
                             </div>
                           )}

@@ -10,6 +10,9 @@ import { wait } from './helpers/delay';
  * This avoids the browser ESM module resolution issue with dynamic import('firebase/firestore').
  */
 
+if (!process.env.VITE_FIREBASE_API_KEY) {
+  throw new Error('VITE_FIREBASE_API_KEY is required for Firestore rules tests. Set it in .env.test');
+}
 const FIREBASE_API_KEY = process.env.VITE_FIREBASE_API_KEY;
 const FIREBASE_PROJECT_ID = 'communityride-app';
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;

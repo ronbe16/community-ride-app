@@ -109,10 +109,11 @@ export function Login() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 relative">
       {isInstallable && (
         <button
+          type="button"
           onClick={install}
           className="absolute top-4 right-4 flex items-center gap-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
         >
-          <Download className="w-4 h-4" />
+          <Download className="w-4 h-4" aria-hidden="true" />
           Install App
         </button>
       )}

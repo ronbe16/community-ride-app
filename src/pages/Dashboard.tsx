@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { COMMUNITY_NAME } from '@/constants/app';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -7,8 +6,7 @@ import { TripCard } from '@/components/dashboard/TripCard';
 import { useTrips } from '@/hooks/useTrips';
 import { useMyTrips } from '@/hooks/useMyTrips';
 import { useMyJoinedTrips } from '@/hooks/useMyJoinedTrips';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useHasOngoingRide } from '@/hooks/useHasOngoingRide';
 
 export function Dashboard() {
   const { userProfile, firebaseUser } = useAuth();
@@ -27,22 +25,7 @@ export function Dashboard() {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const [hasOngoingRide, setHasOngoingRide] = useState(false);
-
-  useEffect(() => {
-    if (!firebaseUser) return;
-    const q = query(
-      collection(db, 'trips'),
-      where('passengerUids', 'array-contains', firebaseUser.uid),
-      where('status', '==', 'ongoing'),
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      setHasOngoingRide(!snap.empty);
-    }, (err: unknown) => {
-      console.error(`Failed to fetch ongoing ride status for user ${firebaseUser.uid}:`, err);
-    });
-    return unsub;
-  }, [firebaseUser]);
+  const hasOngoingRide = useHasOngoingRide(firebaseUser?.uid);
 
   const activeDriverTrips = myTrips.filter((t) => t.status === 'open' || t.status === 'full');
   const joinedTripIds = new Set(joinedTrips.map((t) => t.id));

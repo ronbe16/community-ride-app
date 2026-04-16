@@ -171,6 +171,9 @@ export function Profile() {
     if (!confirmed) return;
     setDeleting(true);
     try {
+      // NOTE: Firestore document is NOT deleted here. A scheduled Cloud Function reads
+      // deleteAt < now() and purges the document within 7 days.
+      // See: Firebase Console > Functions > cleanup-expired-documents (verify deployed before launch)
       const sevenDaysFromNow = Timestamp.fromMillis(Date.now() + 7 * 24 * 60 * 60 * 1000);
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
         status: 'deleted',
@@ -463,7 +466,7 @@ export function Profile() {
       </div>
 
       <p className="text-xs text-gray-400 text-center pt-4 pb-8">
-        Community Ride v1.0.4b
+        Community Ride v{APP_VERSION}
       </p>
     </div>
   );
