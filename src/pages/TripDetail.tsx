@@ -350,6 +350,7 @@ export function TripDetail() {
         communityName: COMMUNITY_NAME,
         generatedAt: serverTimestamp(),
         expiresAt,
+        deleteAt: ninetyDaysFromNow(),
       }).catch((err: unknown) => {
         console.error(`Failed to generate manifest for trip ${tripId}:`, err);
       });
