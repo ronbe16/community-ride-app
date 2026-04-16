@@ -500,6 +500,14 @@ export function TripDetail() {
         updatedAt: serverTimestamp(),
       });
       for (const p of confirmedPassengers) {
+        // Remove this trip from passenger's joinedTripIds
+        updateDoc(doc(db, 'users', p.uid), {
+          joinedTripIds: arrayRemove(tripId),
+        }).catch((err: unknown) => {
+          console.error(`Failed to remove cancelled trip ${tripId} from passenger ${p.uid} joinedTripIds:`, err);
+        });
+
+        // Notify passenger via FCM
         const pDoc = await getDoc(doc(db, 'users', p.uid));
         if (pDoc.exists() && pDoc.data().fcmToken) {
           addDoc(collection(db, 'pending_notifications'), {
