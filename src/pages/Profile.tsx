@@ -66,11 +66,20 @@ export function Profile() {
       toast({ title: 'Home address is required.', variant: 'destructive' });
       return;
     }
+    const cleanMobile = mobileNumber.trim();
+    const localDigits = cleanMobile.startsWith('+63')
+      ? cleanMobile.slice(3)
+      : cleanMobile.replace(/\D/g, '');
+    if (!/^9\d{9}$/.test(localDigits)) {
+      toast({ title: 'Enter a valid Philippine mobile number (e.g. +639171234567 or 9171234567).', variant: 'destructive' });
+      return;
+    }
+    const normalizedMobile = '+63' + localDigits;
     setSaving(true);
     try {
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
         fullName: fullName.trim(),
-        mobileNumber: mobileNumber.trim(),
+        mobileNumber: normalizedMobile,
         homeAddress: homeAddress.trim(),
         updatedAt: serverTimestamp(),
       });
