@@ -104,7 +104,8 @@ export function TripDetail() {
         setIsJoinedPassenger(snap.exists() && snap.data()?.status === 'confirmed');
         setBoardScanUrl(snap.exists() ? (snap.data()?.boardPhotoUrl as string | null) ?? null : null);
       },
-      (_err) => {
+      (err: unknown) => {
+        console.error(`Failed to subscribe to passenger join status for trip ${tripId}:`, err);
         setIsJoinedPassenger(false);
         setBoardScanUrl(null);
       },
