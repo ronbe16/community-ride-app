@@ -10,6 +10,19 @@ Sentry.init({
   environment: import.meta.env.MODE,
 });
 
+const REQUIRED_ENV_VARS = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_CLOUDINARY_CLOUD_NAME',
+  'VITE_CLOUDINARY_UPLOAD_PRESET',
+] as const;
+
+const missing = REQUIRED_ENV_VARS.filter((key) => !import.meta.env[key]);
+if (missing.length > 0) {
+  throw new Error(`Missing required environment variables: ${missing.join(', ')}. Check your .env file.`);
+}
+
 // Register minimal service worker for PWA install prompt (production only)
 const isInIframe = (() => {
   try { return window.self !== window.top; } catch { return true; }
