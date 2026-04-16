@@ -220,10 +220,10 @@ export function TripDetail() {
           joinedAt: serverTimestamp(),
           deleteAt: ninetyDaysFromNow(),
         });
-      });
 
-      await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        joinedTripIds: arrayUnion(tripId),
+        transaction.update(doc(db, 'users', firebaseUser.uid), {
+          joinedTripIds: arrayUnion(tripId),
+        });
       });
 
       // Notify driver — fire-and-forget so join UI is unblocked immediately
