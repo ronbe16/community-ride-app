@@ -234,6 +234,7 @@ export function TripDetail() {
             title: 'New passenger',
             body: `${userProfile.fullName} joined your trip to ${trip.destination}`,
             createdAt: serverTimestamp(),
+            deleteAt: ninetyDaysFromNow(),
           }).catch((err: unknown) => {
             console.error('Failed to queue join notification:', err);
           });
@@ -285,6 +286,7 @@ export function TripDetail() {
           title: 'Passenger cancelled',
           body: `${userProfile?.fullName} cancelled their seat`,
           createdAt: serverTimestamp(),
+          deleteAt: ninetyDaysFromNow(),
         }).catch((err: unknown) => {
           console.error('Failed to queue cancel notification:', err);
         });
