@@ -312,47 +312,53 @@ export function TripDetail() {
         updatedAt: serverTimestamp(),
       });
 
-      // Background manifest write — keyed by tripId, fire and forget
       const expiresAt = Timestamp.fromMillis(
         Date.now() + SAFETY_LINK_EXPIRY_HOURS * 60 * 60 * 1000,
       );
-      setDoc(doc(db, 'manifests', tripId), {
-        generatedBy: firebaseUser.uid,
-        driver: {
-          fullName: userProfile?.fullName ?? trip.driverName,
-          mobileNumber: userProfile?.mobileNumber ?? null,
-          driverLicenseNumber: userProfile?.vehicle?.driverLicenseNumber ?? null,
-          driverLicenseExpiry: userProfile?.vehicle?.driverLicenseExpiry ?? null,
-          vehicle: {
-            make: trip.vehicle.make,
-            model: trip.vehicle.model,
-            year: userProfile?.vehicle?.year ?? null,
-            color: trip.vehicle.color,
-            plateNumber: trip.vehicle.plateNumber,
-            ltfrbPermitNumber: userProfile?.vehicle?.ltfrbPermitNumber ?? null,
-            ltoRegistrationNumber: userProfile?.vehicle?.ltoRegistrationNumber ?? null,
-            insuranceProvider: userProfile?.vehicle?.insuranceProvider ?? null,
-            insuranceExpiry: userProfile?.vehicle?.insuranceExpiry ?? null,
-            ltfrbQrPhotoUrl: userProfile?.vehicle?.ltfrbQrPhotoUrl ?? null,
+      try {
+        await setDoc(doc(db, 'manifests', tripId), {
+          generatedBy: firebaseUser.uid,
+          driver: {
+            fullName: userProfile?.fullName ?? trip.driverName,
+            mobileNumber: userProfile?.mobileNumber ?? null,
+            driverLicenseNumber: userProfile?.vehicle?.driverLicenseNumber ?? null,
+            driverLicenseExpiry: userProfile?.vehicle?.driverLicenseExpiry ?? null,
+            vehicle: {
+              make: trip.vehicle.make,
+              model: trip.vehicle.model,
+              year: userProfile?.vehicle?.year ?? null,
+              color: trip.vehicle.color,
+              plateNumber: trip.vehicle.plateNumber,
+              ltfrbPermitNumber: userProfile?.vehicle?.ltfrbPermitNumber ?? null,
+              ltoRegistrationNumber: userProfile?.vehicle?.ltoRegistrationNumber ?? null,
+              insuranceProvider: userProfile?.vehicle?.insuranceProvider ?? null,
+              insuranceExpiry: userProfile?.vehicle?.insuranceExpiry ?? null,
+              ltfrbQrPhotoUrl: userProfile?.vehicle?.ltfrbQrPhotoUrl ?? null,
+            },
           },
-        },
-        trip: {
-          origin: trip.origin,
-          destination: trip.destination,
-          departureTime: trip.departureTime,
-        },
-        passengers: confirmedPassengers.map((p) => ({
-          fullName: p.fullName,
-          mobileNumber: p.mobileNumber,
-          joinedAt: p.joinedAt,
-        })),
-        communityName: COMMUNITY_NAME,
-        generatedAt: serverTimestamp(),
-        expiresAt,
-        deleteAt: ninetyDaysFromNow(),
-      }).catch((err: unknown) => {
+          trip: {
+            origin: trip.origin,
+            destination: trip.destination,
+            departureTime: trip.departureTime,
+          },
+          passengers: confirmedPassengers.map((p) => ({
+            fullName: p.fullName,
+            mobileNumber: p.mobileNumber,
+            joinedAt: p.joinedAt,
+          })),
+          communityName: COMMUNITY_NAME,
+          generatedAt: serverTimestamp(),
+          expiresAt,
+          deleteAt: ninetyDaysFromNow(),
+        });
+      } catch (err: unknown) {
         console.error(`Failed to generate manifest for trip ${tripId}:`, err);
-      });
+        toast({
+          title: 'Manifest not generated',
+          description: 'Trip is started, but the passenger manifest could not be saved. Please try sharing it again.',
+          variant: 'destructive',
+        });
+      }
 
       toast({ title: 'Trip started!' });
     } catch (err: unknown) {
