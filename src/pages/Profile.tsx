@@ -463,7 +463,7 @@ export function Profile() {
       </div>
 
       <p className="text-xs text-gray-400 text-center pt-4 pb-8">
-        Community Ride v1.0.4b
+        Community Ride v{APP_VERSION}
       </p>
     </div>
   );
