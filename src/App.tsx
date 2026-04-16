@@ -1,36 +1,40 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedLayout } from '@/components/shared/ProtectedLayout';
 import { Login } from '@/pages/Login';
 import { Signup } from '@/pages/Signup';
-import { PendingApproval } from '@/pages/PendingApproval';
-import { Dashboard } from '@/pages/Dashboard';
-import { SafetyCard } from '@/pages/SafetyCard';
-import { Manifest } from '@/pages/Manifest';
+
+const Dashboard = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const SafetyCard = lazy(() => import('@/pages/SafetyCard').then(m => ({ default: m.SafetyCard })));
+const Manifest = lazy(() => import('@/pages/Manifest').then(m => ({ default: m.Manifest })));
+const PostTrip = lazy(() => import('@/pages/PostTrip').then(m => ({ default: m.PostTrip })));
+const TripDetail = lazy(() => import('@/pages/TripDetail').then(m => ({ default: m.TripDetail })));
+const Profile = lazy(() => import('@/pages/Profile').then(m => ({ default: m.Profile })));
+const CompleteProfile = lazy(() => import('@/pages/CompleteProfile').then(m => ({ default: m.CompleteProfile })));
+const TermsPage = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
-
-// Stubs — Antigravity will replace
-const PostTrip = () => <div className="p-4 text-muted-foreground">PostTrip — coming soon</div>;
-const TermsPage = () => <div className="p-4">Terms — coming soon</div>;
-const PrivacyPage = () => <div className="p-4">Privacy — coming soon</div>;
-const TripDetail = () => <div className="p-4 text-muted-foreground">TripDetail — coming soon</div>;
-const Profile = () => <div className="p-4 text-muted-foreground">Profile — coming soon</div>;
-const AdminPanel = () => <div className="p-4 text-muted-foreground">AdminPanel — coming soon</div>;
+import { PwaInstallBanner } from '@/components/shared/PwaInstallBanner';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 
 export default function App() {
   return (
     <AuthProvider>
+      <ErrorBoundary>
       <BrowserRouter>
         <Toaster />
         <Sonner />
+        <PwaInstallBanner />
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/pending" element={<PendingApproval />} />
           <Route path="/safety/:linkId" element={<SafetyCard />} />
           <Route path="/manifest/:manifestId" element={<Manifest />} />
+          <Route path="/complete-profile" element={<CompleteProfile />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
 
@@ -40,12 +44,13 @@ export default function App() {
             <Route path="/post-trip" element={<PostTrip />} />
             <Route path="/trip/:tripId" element={<TripDetail />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/admin" element={<AdminPanel />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
+      </ErrorBoundary>
     </AuthProvider>
   );
 }

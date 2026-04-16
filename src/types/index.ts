@@ -1,9 +1,8 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type UserStatus = 'pending' | 'verified' | 'rejected' | 'suspended';
-export type UserRole = 'driver' | 'passenger';
-export type TripStatus = 'open' | 'full' | 'departed' | 'cancelled';
+export type TripStatus = 'open' | 'full' | 'ongoing' | 'departed' | 'completed' | 'cancelled';
 export type TripType = 'morning' | 'evening';
+export type PhotoType = 'face' | 'id' | 'plate';
 
 export interface Vehicle {
   make: string;
@@ -11,27 +10,45 @@ export interface Vehicle {
   year: number;
   plateNumber: string;
   color: string;
-  ltfrbPermitNumber?: string;
-  ltfrbQrPhotoUrl?: string;
+  ltfrbPermitNumber?: string | null;
+  ltfrbQrPhotoUrl?: string | null;
+  ltoRegistrationNumber?: string | null;
+  insuranceProvider?: string | null;
+  insuranceExpiry?: string | null;
+  driverLicenseNumber?: string | null;
+  driverLicenseExpiry?: string | null;
+}
+
+export interface ExchangePhoto {
+  url: string;
+  publicId: string;
+  type: PhotoType;
+  uploadedBy: string;
+  uploadedAt: Timestamp;
 }
 
 export interface UserProfile {
   uid: string;
   fullName: string;
   mobileNumber: string;
-  homeAddress: string;
-  email: string;
-  role: UserRole;
-  status: UserStatus;
-  rejectionNote?: string;
+  email?: string;
+  homeAddress?: string;
   vehicle?: Vehicle;
-  idPhotoUrl: string;
-  idVerifiedAt?: Timestamp;
-  idVerifiedBy?: string;
+  tripCount: number;
+  rating: number;
+  ratingCount: number;
+  consentVersion?: string;
+  consentAcceptedAt?: Timestamp;
+  deleteAt?: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   fcmToken?: string;
   lastActiveAt: Timestamp;
+  joinedTripIds?: string[];
+  status?: 'pending' | 'approved' | 'rejected' | 'suspended';
+  rejectionNote?: string;
+  isHoaMember?: boolean;
+  communityName?: string;
 }
 
 export interface Trip {
@@ -39,6 +56,8 @@ export interface Trip {
   driverUid: string;
   driverName: string;
   driverPhotoUrl?: string;
+  driverRating?: number;
+  driverTripCount?: number;
   vehicle: {
     make: string;
     model: string;
@@ -59,6 +78,7 @@ export interface Trip {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   manifestLinkId?: string;
+  exchangePhotos?: Record<string, ExchangePhoto>;
 }
 
 export interface ConsentRecord {
@@ -75,4 +95,13 @@ export interface PassengerEntry {
   cancelledAt?: Timestamp;
   boardPhotoUrl?: string;
   boardPhotoUploadedAt?: Timestamp;
+}
+
+export interface Rating {
+  tripId: string;
+  fromUid: string;
+  toUid: string;
+  stars: number;
+  createdAt: Timestamp;
+  deleteAt: Timestamp;
 }

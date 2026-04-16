@@ -1,47 +1,67 @@
+import { useState, useEffect } from 'react';
 import { COMMUNITY_NAME } from '@/constants/app';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { TripCard } from '@/components/dashboard/TripCard';
-import { StatusAlert } from '@/components/dashboard/StatusAlert';
-
-// Mock data for visual approval
-const mockTrips = [
-  {
-    id: '1',
-    driverName: 'Maria Santos',
-    verified: true,
-    vehicle: { color: 'White', make: 'Toyota', model: 'Innova', plateLastThree: '789' },
-    origin: 'Phase 1 Gate',
-    destination: 'SM City Fairview',
-    departureTime: '7:30 AM',
-    waitingMinutes: 10,
-    seatsLeft: 2,
-    gasContribution: 50,
-  },
-  {
-    id: '2',
-    driverName: 'Pedro Reyes',
-    verified: true,
-    vehicle: { color: 'Silver', make: 'Honda', model: 'City', plateLastThree: '456' },
-    origin: 'Clubhouse',
-    destination: 'Trinoma Mall',
-    departureTime: '8:00 AM',
-    waitingMinutes: 15,
-    seatsLeft: 1,
-    gasContribution: undefined,
-  },
-];
+import { useTrips } from '@/hooks/useTrips';
+import { useMyTrips } from '@/hooks/useMyTrips';
+import { useMyJoinedTrips } from '@/hooks/useMyJoinedTrips';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export function Dashboard() {
-  const { userProfile } = useAuth();
+  const { userProfile, firebaseUser } = useAuth();
   const navigate = useNavigate();
-  const isDriver = userProfile?.role === 'driver';
   const firstName = userProfile?.fullName?.split(' ')[0] || 'Neighbor';
+
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const dateStr = now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const { trips, loading: tripsLoading } = useTrips();
+  const { trips: myTrips } = useMyTrips();
+  const { trips: joinedTrips } = useMyJoinedTrips();
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [hasOngoingRide, setHasOngoingRide] = useState(false);
+
+  useEffect(() => {
+    if (!firebaseUser) return;
+    const q = query(
+      collection(db, 'trips'),
+      where('passengerUids', 'array-contains', firebaseUser.uid),
+      where('status', '==', 'ongoing'),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setHasOngoingRide(!snap.empty);
+    }, (err: unknown) => {
+      console.error(`Failed to fetch ongoing ride status for user ${firebaseUser.uid}:`, err);
+    });
+    return unsub;
+  }, [firebaseUser]);
+
+  const activeDriverTrips = myTrips.filter((t) => t.status === 'open' || t.status === 'full');
+  const joinedTripIds = new Set(joinedTrips.map((t) => t.id));
+  const todayJoinedTrip = joinedTrips.find(
+    (t) =>
+      (t.status === 'open' || t.status === 'full') &&
+      t.departureTime.toDate() >= todayStart,
+  ) ?? null;
+
+  // Ongoing trips — driver's own + passenger's joined, deduplicated
+  const ongoingDriverTrips = myTrips.filter((t) => t.status === 'ongoing');
+  const ongoingDriverTripIds = new Set(ongoingDriverTrips.map((t) => t.id));
+  const allOngoingTrips = [
+    ...ongoingDriverTrips,
+    ...joinedTrips.filter((t) => t.status === 'ongoing' && !ongoingDriverTripIds.has(t.id)),
+  ];
+
+  const openTrips = trips.filter((t) => t.status === 'open');
+  const fullTrips = trips.filter((t) => t.status === 'full');
 
   return (
     <div className="space-y-4 pt-4">
@@ -51,46 +71,120 @@ export function Dashboard() {
         <p className="text-muted-foreground text-sm">{COMMUNITY_NAME} · {dateStr}</p>
       </div>
 
-      {/* Section 2: Status Alert */}
-      <StatusAlert status={userProfile?.status} rejectionNote={userProfile?.rejectionNote} />
-
-      {/* Section 3: Active Trip (driver only stub) */}
-      {isDriver && (
-        <div className="bg-primary-light border border-primary/20 rounded-xl p-4">
-          <p className="text-foreground font-medium">🛺 Your active trip</p>
-          <p className="text-sm text-muted-foreground mt-1">Phase 1 Gate → SM City Fairview</p>
-          <p className="text-sm text-muted-foreground">Departs 7:30 AM · 1/3 seats filled</p>
-          <Button size="sm" className="mt-3" onClick={() => navigate('/trip/demo')}>
+      {/* Section 2: My ride today (passenger's joined trip) */}
+      {todayJoinedTrip && (
+        <div className="rounded-xl p-4" style={{ backgroundColor: '#FFDE00' }}>
+          <p className="font-medium" style={{ color: '#1a1a1a' }}>🎫 Your ride today</p>
+          <p className="text-sm mt-1" style={{ color: '#1a1a1a' }}>
+            {todayJoinedTrip.driverName} → {todayJoinedTrip.destination}
+          </p>
+          <p className="text-sm" style={{ color: '#1a1a1a' }}>
+            Departs {todayJoinedTrip.departureTime.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })} · {todayJoinedTrip.vehicle.color} {todayJoinedTrip.vehicle.make} {todayJoinedTrip.vehicle.model}
+          </p>
+          <Button
+            size="sm"
+            className="mt-3 bg-black/10 text-black hover:bg-black/20 border-0"
+            onClick={() => navigate(`/trip/${todayJoinedTrip.id}`)}
+          >
             View Trip
           </Button>
         </div>
       )}
 
-      {/* Section 4: Quick Action Buttons */}
-      <div className={`grid gap-3 ${isDriver ? 'grid-cols-2' : 'grid-cols-1'}`}>
-        {isDriver ? (
-          <>
-            <Button className="h-14 rounded-xl text-sm font-medium" onClick={() => navigate('/post-trip')}>
-              Post a Trip ➕
-            </Button>
-            <Button variant="outline" className="h-14 rounded-xl text-sm font-medium" onClick={() => navigate('/profile')}>
-              My Profile 👤
-            </Button>
-          </>
-        ) : (
-          <Button className="h-14 rounded-xl text-sm font-medium w-full">
-            Find a Ride 🔍
-          </Button>
-        )}
+      {/* Ongoing trip(s) — driver or passenger */}
+      {allOngoingTrips.length > 0 && (
+        <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: '#FFDE00' }}>
+          <p className="font-medium" style={{ color: '#1a1a1a' }}>
+            🚗 Your ongoing trip{allOngoingTrips.length !== 1 ? 's' : ''}
+          </p>
+          {allOngoingTrips.map((t) => (
+            <div key={t.id} className="border-t border-black/10 pt-3 first:border-0 first:pt-0">
+              <p className="text-sm font-medium" style={{ color: '#1a1a1a' }}>
+                {t.origin} → {t.destination}
+              </p>
+              <p className="text-sm" style={{ color: '#1a1a1a' }}>
+                {t.vehicle.color} {t.vehicle.make} {t.vehicle.model} · {t.filledSeats}/{t.availableSeats} seats
+              </p>
+              <Button
+                size="sm"
+                className="mt-2 bg-black/10 text-black hover:bg-black/20 border-0"
+                onClick={() => navigate(`/trip/${t.id}`)}
+              >
+                View Trip
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Section 3: Driver's active posted trips */}
+      {activeDriverTrips.length > 0 && (
+        <div className="bg-primary-light border border-primary/20 rounded-xl p-4 space-y-3">
+          <p className="text-foreground font-medium">
+            🛺 Your active trip{activeDriverTrips.length > 1 ? 's' : ''}
+          </p>
+          {activeDriverTrips.map((t) => (
+            <div key={t.id} className="border-t border-primary/10 pt-3 first:border-0 first:pt-0">
+              <p className="text-sm text-muted-foreground">
+                {t.origin} → {t.destination}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Departs {t.departureTime.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })} · {t.filledSeats}/{t.availableSeats} seats filled
+                {t.status === 'full' && <span className="ml-2 text-xs text-blue-600 font-medium">Full</span>}
+              </p>
+              <Button size="sm" className="mt-2" onClick={() => navigate(`/trip/${t.id}`)}>
+                View Trip
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Section 4: Quick Actions */}
+      <div className="grid grid-cols-2 gap-3">
+        <Button className="h-14 rounded-xl text-sm font-medium" onClick={() => navigate('/post-trip')}>
+          Post a Trip ➕
+        </Button>
+        <Button variant="outline" className="h-14 rounded-xl text-sm font-medium" onClick={() => navigate('/profile')}>
+          My Profile 👤
+        </Button>
       </div>
 
-      {/* Section 5: Available Trips */}
+      {/* Section 5: Available Trips (open) */}
       <div>
         <h2 className="text-foreground font-semibold mb-3">Available trips today</h2>
-        {mockTrips.length > 0 ? (
+        {tripsLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+          </div>
+        ) : openTrips.length > 0 ? (
           <div className="space-y-3">
-            {mockTrips.map((trip) => (
-              <TripCard key={trip.id} trip={trip} />
+            {openTrips.map((trip) => (
+              <TripCard
+                key={trip.id}
+                trip={{
+                  id: trip.id,
+                  driverName: trip.driverName,
+                  driverRating: trip.driverRating,
+                  driverTripCount: trip.driverTripCount,
+                  vehicle: {
+                    color: trip.vehicle.color,
+                    make: trip.vehicle.make,
+                    model: trip.vehicle.model,
+                    plateLastThree: trip.vehicle.plateLastThree,
+                    ltfrbPermitNumber: trip.vehicle.ltfrbPermitNumber,
+                  },
+                  origin: trip.origin,
+                  destination: trip.destination,
+                  departureTime: trip.departureTime.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }),
+                  waitingMinutes: trip.waitingMinutes,
+                  seatsLeft: trip.availableSeats - trip.filledSeats,
+                  gasContribution: trip.gasContribution,
+                  status: trip.status,
+                }}
+                alreadyJoined={joinedTripIds.has(trip.id)}
+                hasOngoingRide={hasOngoingRide}
+              />
             ))}
           </div>
         ) : (
@@ -100,20 +194,43 @@ export function Dashboard() {
         )}
       </div>
 
-      {/* Section 6: My Upcoming Rides */}
-      <div>
-        <h2 className="text-foreground font-semibold mb-3">My ride today</h2>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-sm text-foreground font-medium">🛺 Maria Santos → SM City Fairview</p>
-          <p className="text-xs text-muted-foreground mt-1">Departs 7:30 AM · White Toyota Innova</p>
-          <div className="flex gap-2 mt-3">
-            <Button size="sm" className="rounded-lg text-xs">Share Driver Info</Button>
-            <button className="text-destructive text-xs underline">Cancel seat</button>
+      {/* Section 6: Full / Ongoing Trips */}
+      {!tripsLoading && fullTrips.length > 0 && (
+        <div>
+          <h2 className="text-foreground font-semibold mb-3">Full trips / Ongoing</h2>
+          <div className="space-y-3">
+            {fullTrips.map((trip) => (
+              <TripCard
+                key={trip.id}
+                trip={{
+                  id: trip.id,
+                  driverName: trip.driverName,
+                  driverRating: trip.driverRating,
+                  driverTripCount: trip.driverTripCount,
+                  vehicle: {
+                    color: trip.vehicle.color,
+                    make: trip.vehicle.make,
+                    model: trip.vehicle.model,
+                    plateLastThree: trip.vehicle.plateLastThree,
+                    ltfrbPermitNumber: trip.vehicle.ltfrbPermitNumber,
+                  },
+                  origin: trip.origin,
+                  destination: trip.destination,
+                  departureTime: trip.departureTime.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }),
+                  waitingMinutes: trip.waitingMinutes,
+                  seatsLeft: trip.availableSeats - trip.filledSeats,
+                  gasContribution: trip.gasContribution,
+                  status: trip.status,
+                }}
+                alreadyJoined={joinedTripIds.has(trip.id)}
+                hasOngoingRide={hasOngoingRide}
+              />
+            ))}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Section 7: Footer */}
+      {/* Footer */}
       <p className="text-muted-foreground/60 text-xs text-center py-4">
         Community Ride · {COMMUNITY_NAME}
       </p>
