@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, Timestamp, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Trip } from '@/types';
 
@@ -19,6 +19,7 @@ export function useTrips() {
       where('status', 'in', ['open', 'full', 'ongoing', 'completed']),
       where('departureTime', '>=', Timestamp.fromDate(todayStart)),
       orderBy('departureTime', 'asc'),
+      limit(50),
     );
 
     unsubRef.current = onSnapshot(
