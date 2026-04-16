@@ -167,6 +167,7 @@ export function PostTrip() {
         waitingMinutes,
         availableSeats,
         filledSeats: 0,
+        passengerUids: [],
         gasContribution: gas ?? null,
         status: 'open',
         tripType,
