@@ -18,6 +18,12 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-border">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-background focus:px-4 focus:py-2 focus:rounded focus:text-sm"
+      >
+        Skip to main content
+      </a>
       <div className="max-w-app mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-xs font-bold">
