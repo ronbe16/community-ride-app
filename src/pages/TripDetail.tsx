@@ -226,9 +226,8 @@ export function TripDetail() {
         joinedTripIds: arrayUnion(tripId),
       });
 
-      // Notify driver — secondary write, failures must not surface as join failure (Fix 2)
-      try {
-        const driverDoc = await getDoc(doc(db, 'users', trip.driverUid));
+      // Notify driver — fire-and-forget so join UI is unblocked immediately
+      getDoc(doc(db, 'users', trip.driverUid)).then((driverDoc) => {
         if (driverDoc.exists() && driverDoc.data().fcmToken) {
           addDoc(collection(db, 'pending_notifications'), {
             token: driverDoc.data().fcmToken,
@@ -240,9 +239,9 @@ export function TripDetail() {
             console.error('Failed to queue join notification:', err);
           });
         }
-      } catch (err: unknown) {
+      }).catch((err: unknown) => {
         console.error(`Failed to fetch driver doc for join notification (trip ${tripId}):`, err);
-      }
+      });
 
       toast({ title: "You're in!", description: `You've joined the trip to ${trip.destination}.` });
     } catch (err: unknown) {
