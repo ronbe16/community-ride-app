@@ -507,6 +507,7 @@ export function TripDetail() {
             title: 'Trip cancelled',
             body: `Your trip to ${trip.destination} has been cancelled by the driver.`,
             createdAt: serverTimestamp(),
+            deleteAt: ninetyDaysFromNow(),
           }).catch((err: unknown) => {
             console.error(`Failed to queue cancellation notification for passenger ${p.uid}:`, err);
           });
