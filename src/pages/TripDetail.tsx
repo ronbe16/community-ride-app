@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { uploadPassengerScan } from '@/lib/cloudinary';
 import { uploadExchangePhoto } from '@/lib/safety-exchange';
+import { getDocWithRetry } from '@/lib/firestore-utils';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Trip, PassengerEntry, PhotoType } from '@/types';
@@ -113,7 +114,7 @@ export function TripDetail() {
   // Fetch driver mobile number for confirmed passengers
   useEffect(() => {
     if (!isJoinedPassenger || !trip?.driverUid) return;
-    getDoc(doc(db, 'users', trip.driverUid)).then((snap) => {
+    getDocWithRetry(doc(db, 'users', trip.driverUid)).then((snap) => {
       if (snap.exists()) {
         setDriverMobile((snap.data().mobileNumber as string) ?? null);
       }
