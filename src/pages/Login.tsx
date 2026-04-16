@@ -45,9 +45,7 @@ export function Login() {
       setResetMessage('Check your email for a reset link.');
     } catch (err: unknown) {
       if (err instanceof FirebaseError) {
-        if (err.code === 'auth/user-not-found') {
-          setResetError('No account found with this email.');
-        } else if (err.code === 'auth/invalid-email') {
+        if (err.code === 'auth/invalid-email') {
           setResetError('Please enter a valid email address.');
         } else {
           setResetError('Failed to send reset email. Please try again.');
