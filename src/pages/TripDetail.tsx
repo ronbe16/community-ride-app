@@ -773,6 +773,8 @@ export function TripDetail() {
               return (
                 <button
                   key={type}
+                  type="button"
+                  aria-label={`Take ${type === 'face' ? 'face' : type === 'id' ? 'ID card' : 'license plate'} photo`}
                   onClick={() => openCamera(type)}
                   disabled={uploadingPhoto === type}
                   className="flex flex-col items-center gap-1 bg-white border border-amber-200 rounded-xl p-3 text-xs text-amber-700 disabled:opacity-50"
@@ -793,7 +795,7 @@ export function TripDetail() {
                 Driver's boarding scan of you
               </div>
               <div className="relative w-14 h-14">
-                <img src={boardScanUrl} className="w-14 h-14 object-cover rounded-lg" />
+                <img src={boardScanUrl} alt="Driver's boarding scan of you" className="w-14 h-14 object-cover rounded-lg" />
               </div>
             </div>
           )}
@@ -880,19 +882,19 @@ export function TripDetail() {
                         <div className="flex gap-2">
                           {facePhotoUrl && (
                             <div className="flex flex-col items-center gap-0.5">
-                              <img src={facePhotoUrl} className="w-12 h-12 object-cover rounded-lg" />
+                              <img src={facePhotoUrl} alt={`Face photo taken by ${p.fullName}`} className="w-12 h-12 object-cover rounded-lg" />
                               <span className="text-xs text-gray-400">Face</span>
                             </div>
                           )}
                           {idPhotoUrl && (
                             <div className="flex flex-col items-center gap-0.5">
-                              <img src={idPhotoUrl} className="w-12 h-12 object-cover rounded-lg" />
+                              <img src={idPhotoUrl} alt={`ID photo taken by ${p.fullName}`} className="w-12 h-12 object-cover rounded-lg" />
                               <span className="text-xs text-gray-400">ID</span>
                             </div>
                           )}
                           {platePhotoUrl && (
                             <div className="flex flex-col items-center gap-0.5">
-                              <img src={platePhotoUrl} className="w-12 h-12 object-cover rounded-lg" />
+                              <img src={platePhotoUrl} alt={`Plate photo taken by ${p.fullName}`} className="w-12 h-12 object-cover rounded-lg" />
                               <span className="text-xs text-gray-400">Plate</span>
                             </div>
                           )}

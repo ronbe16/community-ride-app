@@ -107,10 +107,11 @@ export function Signup() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-8 relative">
       {isInstallable && (
         <button
+          type="button"
           onClick={install}
           className="absolute top-4 right-4 flex items-center gap-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
         >
-          <Download className="w-4 h-4" />
+          <Download className="w-4 h-4" aria-hidden="true" />
           Install App
         </button>
       )}
@@ -151,8 +152,9 @@ export function Signup() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Full Name</Label>
+                <Label htmlFor="fullName">Full Name</Label>
                 <Input
+                  id="fullName"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Juan Dela Cruz"
@@ -161,8 +163,9 @@ export function Signup() {
               </div>
 
               <div className="space-y-2">
-                <Label>Email</Label>
+                <Label htmlFor="signupEmail">Email</Label>
                 <Input
+                  id="signupEmail"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -172,8 +175,9 @@ export function Signup() {
               </div>
 
               <div className="space-y-2">
-                <Label>Password (min 8 characters)</Label>
+                <Label htmlFor="signupPassword">Password (min 8 characters)</Label>
                 <Input
+                  id="signupPassword"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -183,10 +187,11 @@ export function Signup() {
               </div>
 
               <div className="space-y-2">
-                <Label>Mobile Number</Label>
+                <Label htmlFor="signupMobile">Mobile Number</Label>
                 <div className="flex gap-2">
                   <span className="flex items-center px-3 bg-muted rounded-md text-sm text-muted-foreground">+63</span>
                   <Input
+                    id="signupMobile"
                     type="tel"
                     value={mobile}
                     onChange={(e) => setMobile(e.target.value)}
