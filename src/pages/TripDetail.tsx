@@ -505,28 +505,32 @@ export function TripDetail() {
         status: 'cancelled',
         updatedAt: serverTimestamp(),
       });
-      for (const p of confirmedPassengers) {
-        // Remove this trip from passenger's joinedTripIds
+      await Promise.all(confirmedPassengers.map(async (p) => {
+        // Fire-and-forget: remove trip from passenger's joinedTripIds
         updateDoc(doc(db, 'users', p.uid), {
           joinedTripIds: arrayRemove(tripId),
         }).catch((err: unknown) => {
           console.error(`Failed to remove cancelled trip ${tripId} from passenger ${p.uid} joinedTripIds:`, err);
         });
 
-        // Notify passenger via FCM
-        const pDoc = await getDoc(doc(db, 'users', p.uid));
-        if (pDoc.exists() && pDoc.data().fcmToken) {
-          addDoc(collection(db, 'pending_notifications'), {
-            token: pDoc.data().fcmToken,
-            title: 'Trip cancelled',
-            body: `Your trip to ${trip.destination} has been cancelled by the driver.`,
-            createdAt: serverTimestamp(),
-            deleteAt: ninetyDaysFromNow(),
-          }).catch((err: unknown) => {
-            console.error(`Failed to queue cancellation notification for passenger ${p.uid}:`, err);
-          });
+        // Fetch token and notify in the same async chain
+        try {
+          const pDoc = await getDoc(doc(db, 'users', p.uid));
+          if (pDoc.exists() && pDoc.data().fcmToken) {
+            addDoc(collection(db, 'pending_notifications'), {
+              token: pDoc.data().fcmToken,
+              title: 'Trip cancelled',
+              body: `Your trip to ${trip.destination} has been cancelled by the driver.`,
+              createdAt: serverTimestamp(),
+              deleteAt: ninetyDaysFromNow(),
+            }).catch((err: unknown) => {
+              console.error(`Failed to queue cancellation notification for passenger ${p.uid}:`, err);
+            });
+          }
+        } catch (err: unknown) {
+          console.error(`Failed to fetch user doc for cancellation notification (passenger ${p.uid}):`, err);
         }
-      }
+      }));
       toast({ title: 'Trip cancelled' });
       navigate('/');
     } catch (err: unknown) {
