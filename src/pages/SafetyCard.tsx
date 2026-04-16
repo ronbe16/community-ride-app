@@ -172,25 +172,25 @@ export function SafetyCard() {
                 <div className="flex gap-3 flex-wrap">
                   {passenger.facePhotoUrl && (
                     <div className="flex flex-col items-center gap-0.5">
-                      <img src={passenger.facePhotoUrl} className="w-16 h-16 object-cover rounded-lg" />
+                      <img src={passenger.facePhotoUrl} alt={`Face photo of ${passenger.fullName}`} className="w-16 h-16 object-cover rounded-lg" />
                       <span className="text-xs text-gray-400">Face</span>
                     </div>
                   )}
                   {passenger.idPhotoUrl && (
                     <div className="flex flex-col items-center gap-0.5">
-                      <img src={passenger.idPhotoUrl} className="w-16 h-16 object-cover rounded-lg" />
+                      <img src={passenger.idPhotoUrl} alt={`ID photo of ${passenger.fullName}`} className="w-16 h-16 object-cover rounded-lg" />
                       <span className="text-xs text-gray-400">ID</span>
                     </div>
                   )}
                   {passenger.platePhotoUrl && (
                     <div className="flex flex-col items-center gap-0.5">
-                      <img src={passenger.platePhotoUrl} className="w-16 h-16 object-cover rounded-lg" />
+                      <img src={passenger.platePhotoUrl} alt={`License plate photo submitted by ${passenger.fullName}`} className="w-16 h-16 object-cover rounded-lg" />
                       <span className="text-xs text-gray-400">Plate</span>
                     </div>
                   )}
                   {passenger.boardScanUrl && (
                     <div className="flex flex-col items-center gap-0.5">
-                      <img src={passenger.boardScanUrl} className="w-16 h-16 object-cover rounded-lg" />
+                      <img src={passenger.boardScanUrl} alt={`Boarding scan for ${passenger.fullName}`} className="w-16 h-16 object-cover rounded-lg" />
                       <span className="text-xs text-gray-400">Boarding Scan</span>
                     </div>
                   )}
