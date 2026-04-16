@@ -36,3 +36,6 @@ screenshots/
 *-TESTING-PLAYBOOK.md
 TEST-RESULTS-*.md
 TEST-EXECUTION-SUMMARY.md
+
+# Audit output
+/audit/
