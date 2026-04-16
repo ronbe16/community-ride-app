@@ -5,7 +5,8 @@ import { BottomNav } from './BottomNav';
 import { useNotifications } from '@/hooks/useNotifications';
 import { CONSENT_VERSION } from '@/constants/app';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -76,6 +77,12 @@ export function ProtectedLayout() {
     );
   }
   if (!firebaseUser) return <Navigate to="/login" replace />;
+  if (userProfile?.status === 'deleted') {
+    signOut(auth).catch((err: unknown) => {
+      console.error('Failed to sign out deleted account:', err);
+    });
+    return <Navigate to="/login?deleted=true" replace />;
+  }
   if (userProfile?.status === 'pending') return <Navigate to="/pending" replace />;
 
   if (userProfile?.status === 'rejected' || userProfile?.status === 'suspended') {
