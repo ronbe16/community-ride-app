@@ -1,5 +1,5 @@
 export const APP_NAME = 'Community Ride';
-export const APP_VERSION = '1.0.4';
+export const APP_VERSION = '1.0.5';
 
 export const LTFRB_PERMIT_URL = 'https://ltfrb.gov.ph'; // Update when official circular drops
 
@@ -11,7 +11,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.0.4',
+    version: '1.0.5',
     date: 'April 2026',
     notes: [
       'Added LTFRB compliance fields to driver profile (permit, license, insurance, LTO OR/CR)',
