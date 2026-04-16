@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, query, where, getDocs, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, increment, query, where, getDocs, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -163,6 +163,14 @@ export function PostTrip() {
         deleteAt: Timestamp.fromDate(
           new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
         ),
+      });
+
+      // Track daily trip count on the user document for server-side enforcement (BIZ-002)
+      const todayKey = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+      updateDoc(doc(db, 'users', firebaseUser.uid), {
+        [`tripCounts.${todayKey}`]: increment(1),
+      }).catch((err: unknown) => {
+        console.error(`Failed to increment tripCounts for user ${firebaseUser.uid} on ${todayKey}:`, err);
       });
 
       // Notify passengers topic — processed by a scheduled Firebase Function
