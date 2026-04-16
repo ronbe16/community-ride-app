@@ -67,6 +67,15 @@ export function SafetyCard() {
   const [expired, setExpired] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Prevent search engine indexing — safety card links contain PII
+  useEffect(() => {
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex, nofollow';
+    document.head.appendChild(meta);
+    return () => { document.head.removeChild(meta); };
+  }, []);
+
   useEffect(() => {
     if (!linkId) {
       setLoading(false);
