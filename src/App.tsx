@@ -1,17 +1,19 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedLayout } from '@/components/shared/ProtectedLayout';
 import { Login } from '@/pages/Login';
 import { Signup } from '@/pages/Signup';
-import { Dashboard } from '@/pages/Dashboard';
-import { SafetyCard } from '@/pages/SafetyCard';
-import { Manifest } from '@/pages/Manifest';
-import { PostTrip } from '@/pages/PostTrip';
-import { TripDetail } from '@/pages/TripDetail';
-import { Profile } from '@/pages/Profile';
-import { CompleteProfile } from '@/pages/CompleteProfile';
-import { TermsPage } from '@/pages/TermsPage';
-import { PrivacyPage } from '@/pages/PrivacyPage';
+
+const Dashboard = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const SafetyCard = lazy(() => import('@/pages/SafetyCard').then(m => ({ default: m.SafetyCard })));
+const Manifest = lazy(() => import('@/pages/Manifest').then(m => ({ default: m.Manifest })));
+const PostTrip = lazy(() => import('@/pages/PostTrip').then(m => ({ default: m.PostTrip })));
+const TripDetail = lazy(() => import('@/pages/TripDetail').then(m => ({ default: m.TripDetail })));
+const Profile = lazy(() => import('@/pages/Profile').then(m => ({ default: m.Profile })));
+const CompleteProfile = lazy(() => import('@/pages/CompleteProfile').then(m => ({ default: m.CompleteProfile })));
+const TermsPage = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { PwaInstallBanner } from '@/components/shared/PwaInstallBanner';
@@ -25,6 +27,7 @@ export default function App() {
         <Toaster />
         <Sonner />
         <PwaInstallBanner />
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
@@ -45,6 +48,7 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
       </ErrorBoundary>
     </AuthProvider>
