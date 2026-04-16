@@ -24,7 +24,6 @@ export function useTrips() {
     unsubRef.current = onSnapshot(
       q,
       (snap) => {
-        console.log('useTrips snapshot count:', snap.size);
         setTrips(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Trip)));
         setLoading(false);
       },
