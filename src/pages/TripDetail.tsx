@@ -173,18 +173,14 @@ export function TripDetail() {
       }
 
       // Block joining if passenger already has an ongoing ride
-      const userDocSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
-      const joinedIds: string[] = userDocSnap.data()?.joinedTripIds ?? [];
-      if (joinedIds.length > 0) {
-        const ongoingRideSnap = await getDocs(query(
-          collection(db, 'trips'),
-          where(documentId(), 'in', joinedIds.slice(0, 30)),
-          where('status', '==', 'ongoing'),
-        ));
-        if (!ongoingRideSnap.empty) {
-          toast({ title: 'You already have an ongoing ride', description: 'Complete your current ride first.', variant: 'destructive' });
-          return;
-        }
+      const ongoingRideSnap = await getDocs(query(
+        collection(db, 'trips'),
+        where('passengerUids', 'array-contains', firebaseUser.uid),
+        where('status', '==', 'ongoing'),
+      ));
+      if (!ongoingRideSnap.empty) {
+        toast({ title: 'You already have an ongoing ride', description: 'Complete your current ride first.', variant: 'destructive' });
+        return;
       }
 
       const tripRef = doc(db, 'trips', tripId);
@@ -208,6 +204,7 @@ export function TripDetail() {
 
         transaction.update(tripRef, {
           filledSeats: increment(1),
+          passengerUids: arrayUnion(firebaseUser.uid),
           ...(tripData.filledSeats + 1 >= tripData.availableSeats ? { status: 'full' } : {}),
           updatedAt: serverTimestamp(),
         });
@@ -266,6 +263,7 @@ export function TripDetail() {
 
         transaction.update(tripRef, {
           filledSeats: increment(-1),
+          passengerUids: arrayRemove(firebaseUser.uid),
           ...(tripSnap.data().status === 'full' ? { status: 'open' } : {}),
           updatedAt: serverTimestamp(),
         });
