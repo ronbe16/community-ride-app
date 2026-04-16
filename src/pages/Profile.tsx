@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { signOut } from 'firebase/auth';
+import { signOut, deleteUser } from 'firebase/auth';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadLtfrbQr } from '@/lib/cloudinary';
 import { auth, db } from '@/lib/firebase';
@@ -33,6 +33,7 @@ export function Profile() {
   const [driverLicenseNumber, setDriverLicenseNumber] = useState(userProfile?.vehicle?.driverLicenseNumber ?? '');
   const [driverLicenseExpiry, setDriverLicenseExpiry] = useState(userProfile?.vehicle?.driverLicenseExpiry ?? '');
   const [uploadingQr, setUploadingQr] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Sync vehicle fields when userProfile loads from Firestore
   // This handles the race condition where userProfile is null at mount time
@@ -159,6 +160,24 @@ export function Profile() {
       toast({ title: 'Failed to upload', description: 'Please try again.', variant: 'destructive' });
     } finally {
       setUploadingQr(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!firebaseUser) return;
+    const confirmed = window.confirm(
+      'This will permanently delete your account and all personal data. This cannot be undone.'
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      await updateDoc(doc(db, 'users', firebaseUser.uid), { status: 'deleted' });
+      await deleteUser(firebaseUser);
+      // AuthContext detects sign-out and redirects to /login
+    } catch (err: unknown) {
+      console.error(`Failed to delete account for user ${firebaseUser.uid}:`, err);
+      toast({ title: 'Could not delete account. Please try again.', variant: 'destructive' });
+      setDeleting(false);
     }
   }
 
@@ -421,6 +440,23 @@ export function Profile() {
       >
         Sign out
       </Button>
+
+      {/* Danger Zone */}
+      <div className="border border-red-200 rounded-xl p-4 space-y-3">
+        <h2 className="text-red-700 font-medium text-sm">Danger Zone</h2>
+        <p className="text-xs text-red-600">
+          Deleting your account will permanently remove your personal data from Community Ride.
+          This cannot be undone.
+        </p>
+        <Button
+          variant="destructive"
+          className="w-full rounded-xl"
+          disabled={deleting}
+          onClick={handleDeleteAccount}
+        >
+          {deleting ? 'Deleting…' : 'Delete Account'}
+        </Button>
+      </div>
 
       <p className="text-xs text-gray-400 text-center pt-4 pb-8">
         Community Ride v1.0.4b
