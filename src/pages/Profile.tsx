@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { signOut, deleteUser } from 'firebase/auth';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { uploadLtfrbQr } from '@/lib/cloudinary';
 import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -171,7 +171,11 @@ export function Profile() {
     if (!confirmed) return;
     setDeleting(true);
     try {
-      await updateDoc(doc(db, 'users', firebaseUser.uid), { status: 'deleted' });
+      const sevenDaysFromNow = Timestamp.fromMillis(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await updateDoc(doc(db, 'users', firebaseUser.uid), {
+        status: 'deleted',
+        deleteAt: sevenDaysFromNow, // Override 90-day clock — queue for prompt cleanup
+      });
       await deleteUser(firebaseUser);
       // AuthContext detects sign-out and redirects to /login
     } catch (err: unknown) {

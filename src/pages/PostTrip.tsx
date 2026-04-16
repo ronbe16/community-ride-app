@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { MAX_TRIPS_PER_DAY, MAX_SEATS, WAITING_TIME_OPTIONS } from '@/constants/app';
 import { WINDOWS } from '@/lib/carpool-windows';
+import { ninetyDaysFromNow } from '@/lib/retention';
 
 function isDepartureOffPeak(departureTime: Date): boolean {
   const phtOffset = 8 * 60;
@@ -190,6 +191,7 @@ export function PostTrip() {
         title: 'New trip available',
         body: `${origin.trim()} → ${destination.trim()} at ${departureTime}`,
         createdAt: serverTimestamp(),
+        deleteAt: ninetyDaysFromNow(),
       }).catch((err: unknown) => {
         console.error('Failed to queue new-trip notification:', err);
       });
