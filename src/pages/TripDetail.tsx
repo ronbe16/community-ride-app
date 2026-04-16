@@ -255,6 +255,7 @@ export function TripDetail() {
 
   async function handleCancelSeat() {
     if (!firebaseUser || !tripId) return;
+    if (trip?.status === 'cancelled' || trip?.status === 'completed') return;
     setActionLoading(true);
     try {
       const tripRef = doc(db, 'trips', tripId);
