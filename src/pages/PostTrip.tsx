@@ -140,6 +140,7 @@ export function PostTrip() {
       const docRef = await addDoc(collection(db, 'trips'), {
         driverUid: firebaseUser.uid,
         driverName: userProfile.fullName,
+        driverTripCount: userProfile.tripCount ?? 0,
         vehicle: {
           make: userProfile.vehicle?.make ?? '',
           model: userProfile.vehicle?.model ?? '',
