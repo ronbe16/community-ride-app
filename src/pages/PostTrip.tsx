@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, doc, updateDoc, increment, query, where, getDocs, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -40,18 +40,13 @@ export function PostTrip() {
   const [gasContribution, setGasContribution] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  if (profileLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!profileLoading && !userProfile) {
+      navigate('/');
+    }
+  }, [profileLoading, userProfile, navigate]);
 
-  if (!userProfile) {
-    navigate('/');
-    return null;
-  }
+  if (profileLoading || !userProfile) return null;
 
   // Require vehicle info to post a trip
   if (!userProfile?.vehicle?.plateNumber) {
