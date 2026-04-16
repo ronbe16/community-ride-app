@@ -40,10 +40,10 @@ export default function App() {
 
           {/* Protected app routes */}
           <Route element={<ProtectedLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/post-trip" element={<PostTrip />} />
-            <Route path="/trip/:tripId" element={<TripDetail />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+            <Route path="/post-trip" element={<ErrorBoundary><PostTrip /></ErrorBoundary>} />
+            <Route path="/trip/:tripId" element={<ErrorBoundary><TripDetail /></ErrorBoundary>} />
+            <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
