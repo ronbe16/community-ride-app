@@ -133,6 +133,17 @@ export function PostTrip() {
       const [hours, minutes] = departureTime.split(':').map(Number);
       const departureDate = new Date();
       departureDate.setHours(hours, minutes, 0, 0);
+
+      if (departureDate <= new Date()) {
+        toast({
+          title: 'Departure time must be in the future',
+          description: 'Please choose a time later than the current time.',
+          variant: 'destructive',
+        });
+        setSubmitting(false);
+        return;
+      }
+
       const tripType = tripTypeFromHour(hours);
 
       const gas = gasContribution.trim() !== '' ? parseFloat(gasContribution) : undefined;
