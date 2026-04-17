@@ -16,7 +16,7 @@ Community Ride is a mobile-first PWA for HOA (homeowners association) community 
 - **Deployment:** Lovable.app (hosting target) — region: asia-southeast1
 - **Payments:** None
 - **Analytics:** None
-- **Error monitoring:** None — console.error only
+- **Error monitoring:** Sentry — initialized in `src/main.tsx` via `@sentry/react`; DSN read from `VITE_SENTRY_DSN`
 - **Bot protection:** None
 - **Testing:** Playwright (E2E, run against live URL), Vitest (unit, minimal coverage)
 
@@ -61,6 +61,9 @@ must be moved to TOOLS-REQUIRED.md for human review. Never edit them automatical
 - All `VITE_FIREBASE_*` variables appear to be client-side secrets but this is **intentional and expected** — Firebase web API keys are designed to be public. Security is enforced by Firestore Security Rules, not key secrecy.
 - `VITE_CLOUDINARY_UPLOAD_PRESET` is an unsigned upload preset — it is intentionally public. Cloudinary security is enforced by upload preset restrictions in the Cloudinary dashboard.
 - `src/components/ui/` files are auto-generated shadcn/ui components. Do not flag shadcn internals as issues.
+- **Gitleaks historical .env findings** — commits `e3556f3` and `102d8b3` contain `.env` with Firebase API key and VAPID key in git history. Pre-existing, already known (tracked as TOOLS-001 since Pass 1), not actionable via code changes. Do not re-flag these as new findings.
+- **BIZ-007 / Manifest `expiresAt` not enforced as a security gate** — informational by design. LTFRB compliance requires the passenger manifest to remain publicly accessible for inspection after the trip concludes, not just during the trip window. The `expiresAt` field is a display hint only; Firestore document lifetime (`deleteAt`) controls actual data retention. Do not flag Manifest.tsx for missing expiry enforcement.
+- **OPS-001 / ErrorBoundary not wired to Sentry** — deferred, not a priority for the current HOA alpha stage. The ErrorBoundary falls back gracefully and console.error is sufficient for now. Do not re-flag this in future audit passes until explicitly re-opened.
 
 ## Test Accounts
 Canonical Playwright test accounts (used only in E2E tests, never real users):
