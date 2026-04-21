@@ -57,6 +57,8 @@ export function TripDetail() {
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoType = useRef<PhotoType | null>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+  const pendingScanIndex = useRef<number>(-1);
 
   useEffect(() => {
     if (!tripId) return;
@@ -541,31 +543,31 @@ export function TripDetail() {
     }
   }
 
-  async function handleScanPassenger(index: number) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file || !tripId) return;
-      try {
-        const url = await uploadPassengerScan(file, tripId, index);
-        const passenger = confirmedPassengers[index];
-        if (passenger) {
-          await updateDoc(doc(db, 'trips', tripId, 'passengers', passenger.uid), {
-            boardPhotoUrl: url,
-            boardPhotoUploadedAt: serverTimestamp(),
-          });
-          setScanPreviews((prev) => ({ ...prev, [passenger.uid]: url }));
-        }
-        toast({ title: 'Photo saved' });
-      } catch (err: unknown) {
-        console.error(`Failed to upload passenger scan for trip ${tripId}, slot ${index}:`, err);
-        toast({ title: 'Failed to save photo', description: 'Please try again.', variant: 'destructive' });
+  function handleScanPassenger(index: number) {
+    pendingScanIndex.current = index;
+    scanInputRef.current?.click();
+  }
+
+  async function handleScanCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const index = pendingScanIndex.current;
+    e.target.value = '';
+    if (!file || !tripId || index < 0) return;
+    try {
+      const url = await uploadPassengerScan(file, tripId, index);
+      const passenger = confirmedPassengers[index];
+      if (passenger) {
+        await updateDoc(doc(db, 'trips', tripId, 'passengers', passenger.uid), {
+          boardPhotoUrl: url,
+          boardPhotoUploadedAt: serverTimestamp(),
+        });
+        setScanPreviews((prev) => ({ ...prev, [passenger.uid]: url }));
       }
-    };
-    input.click();
+      toast({ title: 'Photo saved' });
+    } catch (err: unknown) {
+      console.error(`Failed to upload passenger scan for trip ${tripId}, slot ${index}:`, err);
+      toast({ title: 'Failed to save photo', description: 'Please try again.', variant: 'destructive' });
+    }
   }
 
   function openCamera(type: PhotoType) {
@@ -817,6 +819,15 @@ export function TripDetail() {
             capture="environment"
             className="hidden"
             onChange={handleExchangePhotoCapture}
+          />
+          <input
+            ref={scanInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            aria-label="Scan passenger boarding photo"
+            className="hidden"
+            onChange={handleScanCapture}
           />
         </div>
       )}
