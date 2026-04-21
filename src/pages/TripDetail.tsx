@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Trip, PassengerEntry, PhotoType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { COMMUNITY_NAME, SAFETY_LINK_EXPIRY_HOURS } from '@/constants/app';
 import { ninetyDaysFromNow } from '@/lib/retention';
@@ -46,6 +47,7 @@ export function TripDetail() {
   const [actionLoading, setActionLoading] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState<PhotoType | null>(null);
   const [scanPreviews, setScanPreviews] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
@@ -500,7 +502,6 @@ export function TripDetail() {
 
   async function handleCancelTrip() {
     if (!tripId) return;
-    if (!window.confirm('Cancel this trip? All passengers will be notified.')) return;
     setActionLoading(true);
     try {
       await updateDoc(doc(db, 'trips', tripId), {
@@ -931,7 +932,7 @@ export function TripDetail() {
               <Button
                 className="w-full rounded-xl"
                 variant="destructive"
-                onClick={handleCancelTrip}
+                onClick={() => setShowCancelConfirm(true)}
                 disabled={actionLoading}
               >
                 Cancel trip
@@ -996,6 +997,18 @@ export function TripDetail() {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this trip?</AlertDialogTitle>
+            <AlertDialogDescription>All passengers will be notified.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep trip</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelTrip}>Cancel trip</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
