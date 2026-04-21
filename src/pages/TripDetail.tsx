@@ -7,7 +7,6 @@ import {
 } from 'firebase/firestore';
 import { uploadPassengerScan } from '@/lib/cloudinary';
 import { uploadExchangePhoto } from '@/lib/safety-exchange';
-import { getDocWithRetry } from '@/lib/firestore-utils';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Trip, PassengerEntry, PhotoType } from '@/types';
@@ -17,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { SafetyExchangePanel } from '@/components/trip/SafetyExchangePanel';
 import { DriverPassengerList } from '@/components/trip/DriverPassengerList';
+import { useTripDetail } from '@/hooks/useTripDetail';
 import { COMMUNITY_NAME, SAFETY_LINK_EXPIRY_HOURS } from '@/constants/app';
 import { ninetyDaysFromNow } from '@/lib/retention';
 
@@ -43,9 +43,8 @@ export function TripDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [passengers, setPassengers] = useState<PassengerEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { trip, passengers, loading, isJoinedPassenger, driverMobile, boardScanUrl } = useTripDetail(tripId, firebaseUser);
+
   const [actionLoading, setActionLoading] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
@@ -53,9 +52,6 @@ export function TripDetail() {
   const [uploadingPhoto, setUploadingPhoto] = useState<PhotoType | null>(null);
   const [scanPreviews, setScanPreviews] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
-  const [isJoinedPassenger, setIsJoinedPassenger] = useState(false);
-  const [driverMobile, setDriverMobile] = useState<string | null>(null);
-  const [boardScanUrl, setBoardScanUrl] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewType, setPreviewType] = useState<PhotoType | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
@@ -63,88 +59,6 @@ export function TripDetail() {
   const pendingPhotoType = useRef<PhotoType | null>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
   const pendingScanIndex = useRef<number>(-1);
-
-  useEffect(() => {
-    if (!tripId) return;
-    const unsubTrip = onSnapshot(
-      doc(db, 'trips', tripId),
-      (snap) => {
-        if (snap.exists()) {
-          setTrip({ id: snap.id, ...snap.data() } as Trip);
-        }
-        setLoading(false);
-      },
-      (err) => {
-        console.error(`Failed to subscribe to trip ${tripId}:`, err);
-        setLoading(false);
-      },
-    );
-    return unsubTrip;
-  }, [tripId]);
-
-  useEffect(() => {
-    if (!tripId || !trip) return;
-    const isDriver = firebaseUser?.uid === trip.driverUid;
-    if (!isDriver) return;
-
-    const unsubPassengers = onSnapshot(
-      collection(db, 'trips', tripId, 'passengers'),
-      (snap) => {
-        setPassengers(snap.docs.map((d) => ({ uid: d.id, ...d.data() } as PassengerEntry)));
-      },
-      (err) => {
-        console.error(`Failed to subscribe to passengers for trip ${tripId}:`, err);
-      },
-    );
-    return unsubPassengers;
-  }, [tripId, trip, firebaseUser]);
-
-  // Subscribe to own passenger doc to detect joined status
-  useEffect(() => {
-    if (!tripId || !firebaseUser?.uid) return;
-
-    const passengerRef = doc(db, 'trips', tripId, 'passengers', firebaseUser.uid);
-    const unsub = onSnapshot(
-      passengerRef,
-      (snap) => {
-        setIsJoinedPassenger(snap.exists() && snap.data()?.status === 'confirmed');
-        setBoardScanUrl(snap.exists() ? (snap.data()?.boardPhotoUrl as string | null) ?? null : null);
-      },
-      (err: unknown) => {
-        console.error(`Failed to subscribe to passenger join status for trip ${tripId}:`, err);
-        setIsJoinedPassenger(false);
-        setBoardScanUrl(null);
-      },
-    );
-    return () => unsub();
-  }, [tripId, firebaseUser?.uid]);
-
-  // Fetch driver mobile number for confirmed passengers
-  useEffect(() => {
-    if (!isJoinedPassenger || !trip?.driverUid) return;
-    getDocWithRetry(doc(db, 'users', trip.driverUid)).then((snap) => {
-      if (snap.exists()) {
-        setDriverMobile((snap.data().mobileNumber as string) ?? null);
-      }
-    }).catch((err: unknown) => {
-      console.error(`Failed to fetch driver mobile for trip ${tripId}:`, err);
-    });
-  }, [isJoinedPassenger, trip?.driverUid]);
-
-  // Auto-mark trip as departed when departure time passes — driver only
-  useEffect(() => {
-    if (!trip || !tripId) return;
-    const isDriver = firebaseUser?.uid === trip.driverUid;
-    if (!isDriver) return;
-    if (trip.status !== 'open' && trip.status !== 'full') return;
-
-    const departureMs = trip.departureTime.toDate().getTime();
-    if (Date.now() > departureMs) {
-      updateDoc(doc(db, 'trips', tripId), { status: 'departed' }).catch((err: unknown) => {
-        console.error(`Failed to auto-mark trip ${tripId} as departed:`, err);
-      });
-    }
-  }, [trip, tripId, firebaseUser?.uid]);
 
   if (loading) {
     return (
