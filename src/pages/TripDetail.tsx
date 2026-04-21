@@ -3,29 +3,25 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   doc, onSnapshot, getDoc, addDoc, setDoc,
   collection, serverTimestamp, arrayUnion, arrayRemove, Timestamp,
-  runTransaction, increment, writeBatch, getDocs, query, where, updateDoc, documentId,
+  runTransaction, increment, writeBatch, getDocs, query, where, updateDoc,
 } from 'firebase/firestore';
 import { uploadPassengerScan } from '@/lib/cloudinary';
 import { uploadExchangePhoto } from '@/lib/safety-exchange';
-import { getDocWithRetry } from '@/lib/firestore-utils';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Trip, PassengerEntry, PhotoType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { SafetyExchangePanel } from '@/components/trip/SafetyExchangePanel';
+import { DriverPassengerList } from '@/components/trip/DriverPassengerList';
+import { useTripDetail } from '@/hooks/useTripDetail';
 import { COMMUNITY_NAME, SAFETY_LINK_EXPIRY_HOURS } from '@/constants/app';
 import { ninetyDaysFromNow } from '@/lib/retention';
 
 function formatTime(ts: Timestamp) {
   return ts.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDatetime(ts: Timestamp) {
-  return ts.toDate().toLocaleString('en-PH', {
-    weekday: 'short', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
 }
 
 function isWithinTwoHours(departureTime: Timestamp): boolean {
@@ -40,105 +36,22 @@ export function TripDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [passengers, setPassengers] = useState<PassengerEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { trip, passengers, loading, isJoinedPassenger, driverMobile, boardScanUrl } = useTripDetail(tripId, firebaseUser);
+
   const [actionLoading, setActionLoading] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState<PhotoType | null>(null);
   const [scanPreviews, setScanPreviews] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
-  const [isJoinedPassenger, setIsJoinedPassenger] = useState(false);
-  const [driverMobile, setDriverMobile] = useState<string | null>(null);
-  const [boardScanUrl, setBoardScanUrl] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewType, setPreviewType] = useState<PhotoType | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoType = useRef<PhotoType | null>(null);
-
-  useEffect(() => {
-    if (!tripId) return;
-    const unsubTrip = onSnapshot(
-      doc(db, 'trips', tripId),
-      (snap) => {
-        if (snap.exists()) {
-          setTrip({ id: snap.id, ...snap.data() } as Trip);
-        }
-        setLoading(false);
-      },
-      (err) => {
-        console.error(`Failed to subscribe to trip ${tripId}:`, err);
-        setLoading(false);
-      },
-    );
-    return unsubTrip;
-  }, [tripId]);
-
-  useEffect(() => {
-    if (!tripId || !trip) return;
-    const isDriver = firebaseUser?.uid === trip.driverUid;
-    if (!isDriver) return;
-
-    const unsubPassengers = onSnapshot(
-      collection(db, 'trips', tripId, 'passengers'),
-      (snap) => {
-        setPassengers(snap.docs.map((d) => ({ uid: d.id, ...d.data() } as PassengerEntry)));
-      },
-      (err) => {
-        console.error(`Failed to subscribe to passengers for trip ${tripId}:`, err);
-      },
-    );
-    return unsubPassengers;
-  }, [tripId, trip, firebaseUser]);
-
-  // Subscribe to own passenger doc to detect joined status
-  useEffect(() => {
-    if (!tripId || !firebaseUser?.uid) return;
-
-    const passengerRef = doc(db, 'trips', tripId, 'passengers', firebaseUser.uid);
-    const unsub = onSnapshot(
-      passengerRef,
-      (snap) => {
-        setIsJoinedPassenger(snap.exists() && snap.data()?.status === 'confirmed');
-        setBoardScanUrl(snap.exists() ? (snap.data()?.boardPhotoUrl as string | null) ?? null : null);
-      },
-      (err: unknown) => {
-        console.error(`Failed to subscribe to passenger join status for trip ${tripId}:`, err);
-        setIsJoinedPassenger(false);
-        setBoardScanUrl(null);
-      },
-    );
-    return () => unsub();
-  }, [tripId, firebaseUser?.uid]);
-
-  // Fetch driver mobile number for confirmed passengers
-  useEffect(() => {
-    if (!isJoinedPassenger || !trip?.driverUid) return;
-    getDocWithRetry(doc(db, 'users', trip.driverUid)).then((snap) => {
-      if (snap.exists()) {
-        setDriverMobile((snap.data().mobileNumber as string) ?? null);
-      }
-    }).catch((err: unknown) => {
-      console.error(`Failed to fetch driver mobile for trip ${tripId}:`, err);
-    });
-  }, [isJoinedPassenger, trip?.driverUid]);
-
-  // Auto-mark trip as departed when departure time passes — driver only
-  useEffect(() => {
-    if (!trip || !tripId) return;
-    const isDriver = firebaseUser?.uid === trip.driverUid;
-    if (!isDriver) return;
-    if (trip.status !== 'open' && trip.status !== 'full') return;
-
-    const departureMs = trip.departureTime.toDate().getTime();
-    if (Date.now() > departureMs) {
-      updateDoc(doc(db, 'trips', tripId), { status: 'departed' }).catch((err: unknown) => {
-        console.error(`Failed to auto-mark trip ${tripId} as departed:`, err);
-      });
-    }
-  }, [trip, tripId, firebaseUser?.uid]);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+  const pendingScanIndex = useRef<number>(-1);
 
   if (loading) {
     return (
@@ -255,7 +168,12 @@ export function TripDetail() {
 
   async function handleCancelSeat() {
     if (!firebaseUser || !tripId) return;
-    if (trip?.status === 'cancelled' || trip?.status === 'completed') return;
+    if (
+      trip?.status === 'cancelled' ||
+      trip?.status === 'completed' ||
+      trip?.status === 'ongoing' ||
+      trip?.status === 'departed'
+    ) return;
     setActionLoading(true);
     try {
       const tripRef = doc(db, 'trips', tripId);
@@ -273,10 +191,10 @@ export function TripDetail() {
         });
 
         transaction.delete(passengerRef);
-      });
 
-      await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        joinedTripIds: arrayRemove(tripId),
+        transaction.update(doc(db, 'users', firebaseUser.uid), {
+          joinedTripIds: arrayRemove(tripId),
+        });
       });
 
       // Notify driver
@@ -498,7 +416,6 @@ export function TripDetail() {
 
   async function handleCancelTrip() {
     if (!tripId) return;
-    if (!window.confirm('Cancel this trip? All passengers will be notified.')) return;
     setActionLoading(true);
     try {
       await updateDoc(doc(db, 'trips', tripId), {
@@ -541,31 +458,31 @@ export function TripDetail() {
     }
   }
 
-  async function handleScanPassenger(index: number) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file || !tripId) return;
-      try {
-        const url = await uploadPassengerScan(file, tripId, index);
-        const passenger = confirmedPassengers[index];
-        if (passenger) {
-          await updateDoc(doc(db, 'trips', tripId, 'passengers', passenger.uid), {
-            boardPhotoUrl: url,
-            boardPhotoUploadedAt: serverTimestamp(),
-          });
-          setScanPreviews((prev) => ({ ...prev, [passenger.uid]: url }));
-        }
-        toast({ title: 'Photo saved' });
-      } catch (err: unknown) {
-        console.error(`Failed to upload passenger scan for trip ${tripId}, slot ${index}:`, err);
-        toast({ title: 'Failed to save photo', description: 'Please try again.', variant: 'destructive' });
+  function handleScanPassenger(index: number) {
+    pendingScanIndex.current = index;
+    scanInputRef.current?.click();
+  }
+
+  async function handleScanCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const index = pendingScanIndex.current;
+    e.target.value = '';
+    if (!file || !tripId || index < 0) return;
+    try {
+      const url = await uploadPassengerScan(file, tripId, index);
+      const passenger = confirmedPassengers[index];
+      if (passenger) {
+        await updateDoc(doc(db, 'trips', tripId, 'passengers', passenger.uid), {
+          boardPhotoUrl: url,
+          boardPhotoUploadedAt: serverTimestamp(),
+        });
+        setScanPreviews((prev) => ({ ...prev, [passenger.uid]: url }));
       }
-    };
-    input.click();
+      toast({ title: 'Photo saved' });
+    } catch (err: unknown) {
+      console.error(`Failed to upload passenger scan for trip ${tripId}, slot ${index}:`, err);
+      toast({ title: 'Failed to save photo', description: 'Please try again.', variant: 'destructive' });
+    }
   }
 
   function openCamera(type: PhotoType) {
@@ -748,211 +665,49 @@ export function TripDetail() {
       )}
 
       {/* Optional safety photo exchange — shown when trip departs within 2 hours */}
-      {isJoinedPassenger && showExchange && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <div className="font-medium text-amber-800 mb-1">Optional safety exchange</div>
-          <div className="text-amber-700 text-sm mb-3">
-            Take a photo of the driver, their ID, or the plate number.
-            Photos are shared with your safety contact and deleted after 24 hours.
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {(['face', 'id', 'plate'] as PhotoType[]).map((type) => {
-              const photoUrl = allExchangePhotos.find((p) => p.type === type && p.uploadedBy === firebaseUser?.uid)?.url ?? null;
-              if (photoUrl) {
-                return (
-                  <div key={type} style={{ position: 'relative', width: 80, height: 80 }}>
-                    <img src={photoUrl} alt={`${type} photo`} style={{ width: 80, height: 80, borderRadius: 8, objectFit: 'cover' }} />
-                    <div style={{
-                      position: 'absolute', inset: 0, background: 'rgba(0,180,0,0.35)',
-                      borderRadius: 8, display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: 24,
-                    }}>✓</div>
-                  </div>
-                );
-              }
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  aria-label={`Take ${type === 'face' ? 'face' : type === 'id' ? 'ID card' : 'license plate'} photo`}
-                  onClick={() => openCamera(type)}
-                  disabled={uploadingPhoto === type}
-                  className="flex flex-col items-center gap-1 bg-white border border-amber-200 rounded-xl p-3 text-xs text-amber-700 disabled:opacity-50"
-                >
-                  <span className="text-2xl">
-                    {type === 'face' ? '🤳' : type === 'id' ? '🪪' : '🚗'}
-                  </span>
-                  {uploadingPhoto === type ? 'Saving…' : type === 'face' ? 'Face photo' : type === 'id' ? 'ID card' : 'Plate number'}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Read-only: driver's boarding scan of you */}
-          {boardScanUrl && (
-            <div className="mt-3">
-              <div className="text-xs text-amber-700 font-medium mb-1">
-                Driver's boarding scan of you
-              </div>
-              <div className="relative w-14 h-14">
-                <img src={boardScanUrl} alt="Driver's boarding scan of you" className="w-14 h-14 object-cover rounded-lg" />
-              </div>
-            </div>
-          )}
-
-          {exchangePhotoCount > 0 && (
-            <button
-              onClick={handleShareSafetyCard}
-              className="w-full mt-3 bg-emerald-500 text-white rounded-xl py-2 text-sm font-medium"
-            >
-              Share safety link to family 🤝
-            </button>
-          )}
-
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleExchangePhotoCapture}
-          />
-        </div>
+      {isJoinedPassenger && showExchange && firebaseUser && (
+        <SafetyExchangePanel
+          allExchangePhotos={allExchangePhotos}
+          currentUserUid={firebaseUser.uid}
+          uploadingPhoto={uploadingPhoto}
+          boardScanUrl={boardScanUrl}
+          exchangePhotoCount={exchangePhotoCount}
+          cameraInputRef={cameraInputRef}
+          previewObjectUrl={previewObjectUrl}
+          previewType={previewType}
+          onOpenCamera={openCamera}
+          onExchangePhotoCapture={handleExchangePhotoCapture}
+          onShareSafetyCard={handleShareSafetyCard}
+          onRetakePhoto={handleRetakePhoto}
+          onConfirmUpload={handleConfirmUpload}
+        />
       )}
 
       {/* Driver Actions */}
       {isDriver && (
-        <div className="space-y-3">
-          <h2 className="text-foreground font-semibold">
-            Passengers ({confirmedPassengers.length}/{trip.availableSeats})
-          </h2>
-          {confirmedPassengers.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No passengers yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {/* Fix 5 — tel: links for each passenger (driver view) */}
-              {confirmedPassengers.map((p, i) => {
-                const pPhotos = allExchangePhotos.filter((photo) => photo.uploadedBy === p.uid);
-                const facePhotoUrl = pPhotos.find((ph) => ph.type === 'face')?.url;
-                const idPhotoUrl = pPhotos.find((ph) => ph.type === 'id')?.url;
-                const platePhotoUrl = pPhotos.find((ph) => ph.type === 'plate')?.url;
-                return (
-                  <div key={p.uid} className="bg-card border border-border rounded-xl p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-foreground text-sm font-medium">{p.fullName}</p>
-                        <a
-                          href={`tel:${p.mobileNumber}`}
-                          className="text-primary text-xs font-medium"
-                        >
-                          📞 {p.mobileNumber}
-                        </a>
-                        <p className="text-muted-foreground text-xs">
-                          Joined {p.joinedAt?.toDate ? formatDatetime(p.joinedAt as Timestamp) : '—'}
-                        </p>
-                      </div>
-                      {(scanPreviews[p.uid] ?? p.boardPhotoUrl) ? (
-                        <div style={{ position: 'relative', width: 56, height: 56 }}>
-                          <img
-                            src={scanPreviews[p.uid] ?? p.boardPhotoUrl}
-                            alt="Board scan"
-                            style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }}
-                          />
-                          <div style={{
-                            position: 'absolute', inset: 0, background: 'rgba(0,180,0,0.35)',
-                            borderRadius: 8, display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontSize: 20,
-                          }}>✓</div>
-                        </div>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs shrink-0"
-                          onClick={() => handleScanPassenger(i)}
-                        >
-                          📷 Scan
-                        </Button>
-                      )}
-                    </div>
-                    {/* Read-only: what this passenger photographed of the driver */}
-                    {(facePhotoUrl || idPhotoUrl || platePhotoUrl) && (
-                      <div className="mt-2">
-                        <div className="text-xs text-gray-400 mb-1">Photos this passenger took of you</div>
-                        <div className="flex gap-2">
-                          {facePhotoUrl && (
-                            <div className="flex flex-col items-center gap-0.5">
-                              <img src={facePhotoUrl} alt={`Face photo taken by ${p.fullName}`} className="w-12 h-12 object-cover rounded-lg" />
-                              <span className="text-xs text-gray-400">Face</span>
-                            </div>
-                          )}
-                          {idPhotoUrl && (
-                            <div className="flex flex-col items-center gap-0.5">
-                              <img src={idPhotoUrl} alt={`ID photo taken by ${p.fullName}`} className="w-12 h-12 object-cover rounded-lg" />
-                              <span className="text-xs text-gray-400">ID</span>
-                            </div>
-                          )}
-                          {platePhotoUrl && (
-                            <div className="flex flex-col items-center gap-0.5">
-                              <img src={platePhotoUrl} alt={`Plate photo taken by ${p.fullName}`} className="w-12 h-12 object-cover rounded-lg" />
-                              <span className="text-xs text-gray-400">Plate</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {(trip.status === 'open' || trip.status === 'full') && (
-            <>
-              <Button
-                className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={handleStartTrip}
-                disabled={actionLoading}
-              >
-                {actionLoading ? 'Starting…' : '🚀 Start Trip'}
-              </Button>
-              <Button
-                className="w-full rounded-xl"
-                variant="destructive"
-                onClick={handleCancelTrip}
-                disabled={actionLoading}
-              >
-                Cancel trip
-              </Button>
-            </>
-          )}
-        </div>
+        <DriverPassengerList
+          passengers={confirmedPassengers}
+          availableSeats={trip.availableSeats}
+          tripStatus={trip.status}
+          allExchangePhotos={allExchangePhotos}
+          scanPreviews={scanPreviews}
+          actionLoading={actionLoading}
+          onScanPassenger={handleScanPassenger}
+          onStartTrip={handleStartTrip}
+          onCancelTrip={() => setShowCancelConfirm(true)}
+        />
       )}
 
-      {/* Exchange photo preview modal */}
-      <Dialog open={!!(previewObjectUrl && previewType)} onOpenChange={(open) => { if (!open) handleRetakePhoto(); }}>
-        <DialogContent className="max-w-xs p-4 space-y-4">
-          <DialogTitle className="font-medium text-center text-gray-800">Confirm photo?</DialogTitle>
-          {previewObjectUrl && (
-            <img src={previewObjectUrl} alt="Preview" className="w-full rounded-xl object-cover" style={{ maxHeight: 300 }} />
-          )}
-          <div className="flex gap-3">
-            <button
-              onClick={handleRetakePhoto}
-              className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700"
-            >
-              Retake
-            </button>
-            <button
-              onClick={handleConfirmUpload}
-              className="flex-1 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium"
-            >
-              Confirm
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Always-mounted input for driver passenger scan (used by handleScanPassenger) */}
+      <input
+        ref={scanInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        aria-label="Scan passenger boarding photo"
+        className="hidden"
+        onChange={handleScanCapture}
+      />
 
       {/* Trip Completion Modal */}
       <Dialog open={showCompletionModal} onOpenChange={setShowCompletionModal}>
@@ -985,6 +740,18 @@ export function TripDetail() {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this trip?</AlertDialogTitle>
+            <AlertDialogDescription>All passengers will be notified.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep trip</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelTrip}>Cancel trip</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
