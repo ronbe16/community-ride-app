@@ -416,6 +416,7 @@ export function TripDetail() {
 
   async function handleCancelTrip() {
     if (!tripId) return;
+    if (!trip || !['open', 'full'].includes(trip.status)) return;
     setActionLoading(true);
     try {
       await updateDoc(doc(db, 'trips', tripId), {
