@@ -273,10 +273,10 @@ export function TripDetail() {
         });
 
         transaction.delete(passengerRef);
-      });
 
-      await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        joinedTripIds: arrayRemove(tripId),
+        transaction.update(doc(db, 'users', firebaseUser.uid), {
+          joinedTripIds: arrayRemove(tripId),
+        });
       });
 
       // Notify driver
