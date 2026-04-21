@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   doc, onSnapshot, getDoc, addDoc, setDoc,
   collection, serverTimestamp, arrayUnion, arrayRemove, Timestamp,
-  runTransaction, increment, writeBatch, getDocs, query, where, updateDoc, documentId,
+  runTransaction, increment, writeBatch, getDocs, query, where, updateDoc,
 } from 'firebase/firestore';
 import { uploadPassengerScan } from '@/lib/cloudinary';
 import { uploadExchangePhoto } from '@/lib/safety-exchange';
@@ -22,13 +22,6 @@ import { ninetyDaysFromNow } from '@/lib/retention';
 
 function formatTime(ts: Timestamp) {
   return ts.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDatetime(ts: Timestamp) {
-  return ts.toDate().toLocaleString('en-PH', {
-    weekday: 'short', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
 }
 
 function isWithinTwoHours(departureTime: Timestamp): boolean {
