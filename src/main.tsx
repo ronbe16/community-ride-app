@@ -18,7 +18,6 @@ const REQUIRED_ENV_VARS = [
   'VITE_CLOUDINARY_UPLOAD_PRESET',
   'VITE_FIREBASE_MESSAGING_SENDER_ID',
   'VITE_FIREBASE_VAPID_KEY',
-  'VITE_SENTRY_DSN',
 ] as const;
 
 const missing = REQUIRED_ENV_VARS.filter((key) => !import.meta.env[key]);
