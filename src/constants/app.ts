@@ -63,7 +63,7 @@ export const TERMS_VERSION = 'v1.0';
 export const PRIVACY_VERSION = 'v1.0';
 export const CONSENT_VERSION = `terms-${TERMS_VERSION}-privacy-${PRIVACY_VERSION}`;
 
-export const COMMUNITY_NAME = import.meta.env.VITE_COMMUNITY_NAME || 'Your Village';
+export const COMMUNITY_NAME = 'Metrocor-B Homes';
 
 export const MAX_TRIPS_PER_DAY = 2;
 export const SAFETY_LINK_EXPIRY_HOURS = 48;
