@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithGoogleFirebase } from '@ronbe16/core/auth';
 import { FirebaseError } from 'firebase/app';
 import { Download } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
@@ -12,8 +13,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-
-const googleProvider = new GoogleAuthProvider();
 
 export function Login() {
   const navigate = useNavigate();
@@ -78,7 +77,7 @@ export function Login() {
     setError('');
     setLoading(true);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithGoogleFirebase(auth);
       const userDoc = await getDoc(doc(db, 'users', result.user.uid));
       if (!userDoc.exists()) {
         navigate('/complete-profile', {

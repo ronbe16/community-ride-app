@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
-import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithGoogleFirebase } from '@ronbe16/core/auth';
 import { FirebaseError } from 'firebase/app';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -13,8 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-
-const googleProvider = new GoogleAuthProvider();
 
 export function Signup() {
   const navigate = useNavigate();
@@ -33,7 +32,7 @@ export function Signup() {
     setError('');
     setLoading(true);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithGoogleFirebase(auth);
       const user = result.user;
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (!userDoc.exists()) {
