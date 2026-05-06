@@ -12,11 +12,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Force HTTPS for GitHub git URLs
-        run: |
-          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@ronbe16'
       - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_PACKAGES }}
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
         env:
